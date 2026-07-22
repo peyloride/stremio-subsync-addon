@@ -7,7 +7,8 @@
 export function createConfigureHandler(manifest) {
   const fields = manifest.config || [];
 
-  return (_req, res) => {
+  return (req, res) => {
+    const host = req.get('host') || 'subsync.peyloride.com';
     const fieldHtml = fields
       .map((f) => {
         const label = `<label for="${f.key}">${f.title || f.key}</label>`;
@@ -64,7 +65,7 @@ export function createConfigureHandler(manifest) {
   <p class="sub">${manifest.description}</p>
   <form id="cfg">
     ${fieldHtml}
-    <button type="submit">Install Addon</button>
+    <button type="submit">Save Configuration</button>
   </form>
 </div>
 <script>
@@ -83,7 +84,7 @@ document.getElementById('cfg').addEventListener('submit', function(e) {
     })
     .join('\n  ')}
   var encoded = encodeURIComponent(JSON.stringify(cfg));
-  window.location.href = '/' + encoded + '/manifest.json';
+  window.location.href = 'stremio://${host}/' + encoded + '/manifest.json';
 });
 </script>
 </body>
