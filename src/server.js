@@ -12,6 +12,7 @@ import { parseConfig } from './config.js';
 import { manifest } from './manifest.js';
 import { createHealthHandler } from './handlers/health.js';
 import { createSubFileHandler } from './handlers/sub.js';
+import { createConfigureHandler } from './handlers/configure.js';
 import { createSubtitlesHandler } from './handlers/subtitles.js';
 import { ProviderRegistry } from './providers/index.js';
 import { CacheStore } from './cache/store.js';
@@ -66,6 +67,7 @@ export function createApp(config = parseConfig(), deps = {}) {
   });
 
   app.get('/health', createHealthHandler({ checkAvailability: checkFfsubsync, cache }));
+  app.get('/configure', createConfigureHandler(manifest));
   app.get('/sub/:videoHash/:subtitleId', createSubFileHandler(cache.cacheDir));
   app.use(getRouter(buildAddonInterface(subtitlesHandler)));
 
