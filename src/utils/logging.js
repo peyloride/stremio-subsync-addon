@@ -35,6 +35,15 @@ export function redactUrl(value) {
         // Not a JSON config segment; retain the normal path.
       }
     }
+    // OpenSubtitles download links contain a long, temporary signed token in
+    // the path rather than the query string. Do not retain that token in logs.
+    if (url.hostname.toLowerCase() === 'www.opensubtitles.com') {
+      const downloadIndex = segments.findIndex((segment) => segment === 'download');
+      if (downloadIndex >= 0 && segments[downloadIndex + 1]) {
+        segments[downloadIndex + 1] = '[redacted]';
+      }
+    }
+
     const safePath = `${segments.join('/')}${url.search}`;
     return absolute ? `${url.origin}${safePath}` : safePath;
   } catch {

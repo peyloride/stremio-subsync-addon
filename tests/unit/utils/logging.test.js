@@ -34,6 +34,16 @@ describe('logging utilities', () => {
     expect(safe).not.toContain('super-secret');
   });
 
+  it('redacts signed OpenSubtitles download tokens from paths', () => {
+    const safe = redactUrl(
+      'https://www.opensubtitles.com/download/signed-token/subfile/title.srt',
+    );
+    expect(safe).toBe(
+      'https://www.opensubtitles.com/download/[redacted]/subfile/title.srt',
+    );
+    expect(safe).not.toContain('signed-token');
+  });
+
   it('summarizes configured keys without exposing their values', () => {
     const summary = summarizeConfig({
       languages: ['tr'],
