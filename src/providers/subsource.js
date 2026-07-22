@@ -1,56 +1,50 @@
 /**
- * Subsource API provider.
+ * Subsource provider (v1 API).
  *
- * Base URL: https://subsource.net/api/
- * No API key required.
+ * Base URL: https://api.subsource.net/api/v1
+ * Requires API key via X-API-Key header (free at subsource.net profile page).
  *
- * Search: POST /searchSubtitles with { imdbId, languages, season?, episode? }.
- * Download: POST /downloadSub with { subId } returns a temporary `link`,
- * which is then fetched for the raw bytes. Because the real download URL is
- * not known at search time, results carry a synthetic URL of the form
- * `subsource://sub/<id>` and the numeric sub id is also stored in `id`.
+ * Search: GET /subtitles?movieName=<linkName>&season=<n>&language=<lang>
+ * Download: GET /subtitles/{id}/download
  */
 
 import { normalizeLang } from '../utils/language.js';
 
-const BASE_URL = 'https://subsource.net/api';
+const BASE_URL = 'https://api.subsource.net/api/v1';
 const REQUEST_TIMEOUT_MS = 10000;
-/** Synthetic scheme prefix used to carry the sub id inside ProviderSubtitle.url. */
-export const DOWNLOAD_SCHEME = 'subsource://sub/';
-
-/** Extract the sub id from a ProviderSubtitle (url scheme or id). */
-function parseSubId(sub) {
-  if (sub?.url && sub.url.startsWith(DOWNLOAD_SCHEME)) {
-    return sub.url.slice(DOWNLOAD_SCHEME.length);
-  }
-  return sub?.id != null ? String(sub.id) : '';
-}
 
 export class SubsourceProvider {
-  constructor(_config = {}) {
+  constructor(config = {}) {
     this.name = 'subsource';
+    this.apiKey = config.subsourceApiKey || '';
   }
 
   /**
    * @param {import('./base.js').SubtitleQuery} query
    * @returns {Promise<import('./base.js').ProviderSubtitle[]>}
-   */
+  */
   async search(query) {
+    if (!this.apiKey) return [];
     if (!query.imdbId) return [];
 
-    const body = {
-      imdbId: query.imdbId,
-      languages: query.languages || [],
-    };
-    if (query.type === 'series') {
-      if (query.season != null) body.season = query.season;
-      if (query.episode != null) body.episode = query.episode;
+    // First resolve the movie/show linkName from IMDB ID
+    const linkName = await this._resolveLinkName(query);
+    if (!linkName) return [];
+
+    const params = new URLSearchParams();
+    params.set('movieName', linkName);
+    if (query.type === 'series' && query.season != null) {
+      params.set('season', String(query.season));
+    }
+    for (const lang of query.languages || []) {
+      params.append('language', lang);
     }
 
-    const res = await globalThis.fetch(`${BASE_URL}/searchSubtitles`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(body),
+    const res = await globalThis.fetch(`${BASE_URL}/subtitles?${params}`, {
+      headers: {
+        'X-API-Key': this.apiKey,
+        Accept: 'application/json',
+      },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
@@ -61,26 +55,44 @@ export class SubsourceProvider {
     return this._normalize(json);
   }
 
+  async _resolveLinkName(query) {
+    try {
+      const params = new URLSearchParams();
+      params.set('query', query.imdbId);
+      const res = await globalThis.fetch(`${BASE_URL}/movies/search?${params}`, {
+        headers: {
+          'X-API-Key': this.apiKey,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      const items = json?.items || json?.results || json?.movies || [];
+      if (items.length === 0) return null;
+      return items[0].linkName || items[0].link_name || items[0].slug || null;
+    } catch {
+      return null;
+    }
+  }
+
   _normalize(json) {
-    const subs = Array.isArray(json?.subs)
-      ? json.subs
-      : Array.isArray(json?.results)
-        ? json.results
-        : [];
+    const subs = json?.items || json?.subtitles || json?.results || [];
+    if (!Array.isArray(subs)) return [];
 
     return subs.map((s) => {
-      const id = String(s.id ?? s.subId ?? '');
+      const id = String(s.id ?? '');
       return {
         id,
         provider: this.name,
         lang: normalizeLang(s.language ?? s.lang),
-        url: id ? `${DOWNLOAD_SCHEME}${id}` : '',
-        filename: s.file_name || s.release || '',
-        releaseName: s.release || s.release_name || '',
+        url: id ? `${BASE_URL}/subtitles/${id}/download` : '',
+        filename: s.fileName || s.file_name || s.release || '',
+        releaseName: s.release || s.releaseName || '',
         hashMatch: false,
         downloads: s.downloads ?? 0,
         rating: Number(s.rating) || 0,
-        hearingImpaired: Boolean(s.hi ?? s.hearing_impaired),
+        hearingImpaired: Boolean(s.hi ?? s.hearingImpaired),
         forced: Boolean(s.forced),
       };
     });
@@ -91,29 +103,15 @@ export class SubsourceProvider {
    * @returns {Promise<Buffer>}
    */
   async download(sub) {
-    const subId = parseSubId(sub);
-    if (!subId) throw new Error('Subsource download: missing sub id');
+    if (!sub?.url) throw new Error('Subsource download: missing url');
 
-    const res = await globalThis.fetch(`${BASE_URL}/downloadSub`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ subId: Number(subId) }),
+    const res = await globalThis.fetch(sub.url, {
+      headers: { 'X-API-Key': this.apiKey },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
-      throw new Error(`Subsource API error: HTTP ${res.status}`);
+      throw new Error(`Subsource download failed: HTTP ${res.status}`);
     }
-
-    const json = await res.json();
-    const link = json?.link;
-    if (!link) throw new Error('Subsource download: no link returned');
-
-    const fileRes = await globalThis.fetch(link, {
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!fileRes.ok) {
-      throw new Error(`Subsource download failed: HTTP ${fileRes.status}`);
-    }
-    return Buffer.from(await fileRes.arrayBuffer());
+    return Buffer.from(await res.arrayBuffer());
   }
 }

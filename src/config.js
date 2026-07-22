@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   cacheTtlDays: 30,
   opensubtitlesApiKey: '',
   subdlApiKey: '',
+  subsourceApiKey: '',
   port: 3100,
   cacheDir: './data/cache',
 });
@@ -64,6 +65,7 @@ export function parseConfig(raw = {}, env = process.env) {
     cacheTtlDays: parseInteger(raw.cacheTtlDays, DEFAULT_CONFIG.cacheTtlDays),
     opensubtitlesApiKey: parseString(raw.opensubtitlesApiKey, DEFAULT_CONFIG.opensubtitlesApiKey),
     subdlApiKey: parseString(raw.subdlApiKey, DEFAULT_CONFIG.subdlApiKey),
+    subsourceApiKey: parseString(raw.subsourceApiKey, DEFAULT_CONFIG.subsourceApiKey),
     port: parseInteger(raw.port ?? env.PORT, DEFAULT_CONFIG.port),
     cacheDir: parseString(raw.cacheDir, parseString(env.CACHE_DIR, DEFAULT_CONFIG.cacheDir)),
   };

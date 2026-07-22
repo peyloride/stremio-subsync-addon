@@ -11,6 +11,7 @@ describe('parseConfig', () => {
       cacheTtlDays: 30,
       opensubtitlesApiKey: '',
       subdlApiKey: '',
+      subsourceApiKey: '',
       port: 3100,
       cacheDir: './data/cache',
     });

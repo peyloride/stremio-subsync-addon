@@ -13,21 +13,17 @@ import { validateProvider } from './base.js';
 import { OpenSubtitlesProvider } from './opensubtitles.js';
 import { SubDLProvider } from './subdl.js';
 import { SubsourceProvider } from './subsource.js';
-import { PodnapisiProvider } from './podnapisi.js';
-
 export {
   OpenSubtitlesProvider,
   SubDLProvider,
   SubsourceProvider,
-  PodnapisiProvider,
 };
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
 /**
- * Build the default provider list from config. Keyed providers (OpenSubtitles,
- * SubDL) are only included when their API key is configured; keyless providers
- * (Subsource, Podnapisi) are always included.
+ * Build the default provider list from config. All providers require API
+ * keys and are only included when their key is configured.
  *
  * @param {object} config
  * @returns {import('./base.js').SubtitleProvider[]}
@@ -36,8 +32,7 @@ export function createDefaultProviders(config = {}) {
   const providers = [];
   if (config.opensubtitlesApiKey) providers.push(new OpenSubtitlesProvider(config));
   if (config.subdlApiKey) providers.push(new SubDLProvider(config));
-  providers.push(new SubsourceProvider(config));
-  providers.push(new PodnapisiProvider(config));
+  if (config.subsourceApiKey) providers.push(new SubsourceProvider(config));
   return providers;
 }
 

@@ -22,6 +22,7 @@ describe('manifest', () => {
         'languages',
         'opensubtitlesApiKey',
         'subdlApiKey',
+        'subsourceApiKey',
         'syncEnabled',
         'maxOffsetSeconds',
         'cacheTtlDays',

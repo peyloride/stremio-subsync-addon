@@ -30,6 +30,7 @@ export const manifest = {
     },
     { key: 'opensubtitlesApiKey', type: 'text', title: 'OpenSubtitles API key', required: false },
     { key: 'subdlApiKey', type: 'text', title: 'SubDL API key', required: false },
+    { key: 'subsourceApiKey', type: 'text', title: 'Subsource API key', required: false },
     { key: 'syncEnabled', type: 'checkbox', title: 'Enable automatic sync', default: true },
     { key: 'maxOffsetSeconds', type: 'number', title: 'Max sync offset (seconds)', default: 120 },
     { key: 'cacheTtlDays', type: 'number', title: 'Cache TTL (days)', default: 30 },

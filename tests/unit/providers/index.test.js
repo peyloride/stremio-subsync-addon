@@ -36,25 +36,24 @@ afterEach(() => {
 });
 
 describe('createDefaultProviders / constructor', () => {
-  it('skips keyed providers when their API keys are missing', () => {
+  it('returns no providers when all API keys are missing', () => {
     const names = createDefaultProviders({}).map((p) => p.name);
-    expect(names).toEqual(['subsource', 'podnapisi']);
+    expect(names).toEqual([]);
   });
 
   it('includes keyed providers when their API keys are present', () => {
     const names = createDefaultProviders({
       opensubtitlesApiKey: 'os',
       subdlApiKey: 'subdl',
+      subsourceApiKey: 'ss',
     }).map((p) => p.name);
-    expect(names).toEqual(['opensubtitles', 'subdl', 'subsource', 'podnapisi']);
+    expect(names).toEqual(['opensubtitles', 'subdl', 'subsource']);
   });
 
   it('exposes the enabled providers on the registry', () => {
     const registry = new ProviderRegistry({ opensubtitlesApiKey: 'os' });
     expect(registry.providers.map((p) => p.name)).toEqual([
       'opensubtitles',
-      'subsource',
-      'podnapisi',
     ]);
   });
 });
