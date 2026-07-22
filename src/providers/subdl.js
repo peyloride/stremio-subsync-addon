@@ -7,9 +7,10 @@
  * Requires a user-supplied API key (`config.subdlApiKey`). When the key is
  * missing the provider is skipped silently (search returns []).
  *
- * Search: GET /subtitles?api_key=&film_id=<imdb>&languages= with optional
- * season_number/episode_number for series. Results carry a relative `url`
- * (e.g. "/subtitle/xyz.zip") which is resolved against the download host.
+ * Search: GET /subtitles?api_key=&imdb_id=<tt...>&languages= with optional
+ * season_number/episode_number for series. The response has a `subtitles`
+ * array; each entry carries a relative `url` (e.g. "/subtitle/xyz.zip")
+ * which is resolved against the download host.
  */
 
 import { normalizeLang } from '../utils/language.js';
@@ -38,7 +39,8 @@ export class SubDLProvider {
 
     const params = new URLSearchParams();
     params.set('api_key', this.apiKey);
-    params.set('film_id', String(query.imdbId));
+    // SubDL expects the IMDB id with the `tt` prefix.
+    params.set('imdb_id', String(query.imdbId));
     const langs = (query.languages || []).join(',');
     if (langs) params.set('languages', langs);
 
@@ -60,21 +62,31 @@ export class SubDLProvider {
   }
 
   _normalize(json) {
-    const results = Array.isArray(json?.results) ? json.results : [];
+    // SubDL returns matched media in `results` and the actual subtitle files
+    // in `subtitles`.
+    const subs = Array.isArray(json?.subtitles) ? json.subtitles : [];
 
-    return results.map((r) => ({
-      id: String(r.id ?? r.url ?? ''),
-      provider: this.name,
-      lang: normalizeLang(r.language),
-      url: r.url ? `${DOWNLOAD_HOST}${r.url}` : '',
-      filename: r.file_name || r.name || '',
-      releaseName: r.release_name || r.name || '',
-      hashMatch: false,
-      downloads: r.downloads ?? 0,
-      rating: Number(r.rating) || 0,
-      hearingImpaired: Boolean(r.hi),
-      forced: false,
-    }));
+    return subs.map((r) => {
+      // The url is relative and already carries the api_key query param.
+      const relUrl = r.url || '';
+      // Derive a stable id from the url basename (e.g. "/subtitle/123-456.zip"
+      // -> "123-456").
+      const base = (relUrl.split('?')[0].split('/').pop() || '').replace(/\.[a-z0-9]+$/i, '');
+      const id = String(r.id ?? base);
+      return {
+        id,
+        provider: this.name,
+        lang: normalizeLang(r.language ?? r.lang),
+        url: relUrl ? `${DOWNLOAD_HOST}${relUrl}` : '',
+        filename: r.name || '',
+        releaseName: r.release_name || r.name || '',
+        hashMatch: false,
+        downloads: r.downloads ?? 0,
+        rating: Number(r.rating) || 0,
+        hearingImpaired: Boolean(r.hi),
+        forced: false,
+      };
+    });
   }
 
   /**

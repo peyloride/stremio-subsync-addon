@@ -77,27 +77,35 @@ export class OpenSubtitlesLegacyProvider {
     // should not prevent an IMDB search from running.
     if (query.videoHash && query.videoSize) {
       const hashPath = `/search/moviehash-${query.videoHash}/moviebytesize-${query.videoSize}/sublanguageid-${langs}`;
-      const byHash = await this._fetchSearch(hashPath, true);
-      if (byHash.length > 0) return byHash;
+      const rawHash = await this._fetchRaw(hashPath);
+      if (rawHash.length > 0) return this._normalize(rawHash, true);
     }
 
     if (query.imdbId) {
       const imdbNum = query.imdbId.replace(/^tt/, '');
-      let imdbPath = `/search/imdbid-${imdbNum}/sublanguageid-${langs}`;
+      // NOTE: never append /season-X/episode-Y path segments. This API's edge
+      // fails DNS resolution on those paths (getaddrinfo ENOTFOUND). Search by
+      // IMDB only and filter to the requested episode client-side using the
+      // SeriesSeason/SeriesEpisode fields present on each result.
+      const imdbPath = `/search/imdbid-${imdbNum}/sublanguageid-${langs}`;
+      let raw = await this._fetchRaw(imdbPath);
       if (query.type === 'series' && query.season != null && query.episode != null) {
-        imdbPath += `/season-${query.season}/episode-${query.episode}`;
+        raw = raw.filter(
+          (r) => Number(r.SeriesSeason) === query.season && Number(r.SeriesEpisode) === query.episode,
+        );
       }
-      return this._fetchSearch(imdbPath, false);
+      return this._normalize(raw, false);
     }
 
     return [];
   }
 
   /**
-   * Run one search request. Returns [] on HTTP error so callers can fall back
-   * to the next strategy; throws only on hard network failure.
+   * Run one search request and return the raw result array. Returns [] on HTTP
+   * error so callers can fall back to the next strategy; throws only on hard
+   * network failure.
    */
-  async _fetchSearch(path, isHashSearch) {
+  async _fetchRaw(path) {
     const url = `${BASE_URL}${path}`;
     const res = await fetchWithRetry(url, {
       headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
@@ -109,8 +117,7 @@ export class OpenSubtitlesLegacyProvider {
       return [];
     }
     const json = await res.json();
-    const results = Array.isArray(json) ? json : [];
-    return this._normalize(results, isHashSearch);
+    return Array.isArray(json) ? json : [];
   }
 
   _normalize(results, isHashSearch) {

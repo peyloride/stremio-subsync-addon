@@ -39,19 +39,18 @@ describe('SubDLProvider.search', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('searches by film_id with languages and normalizes results', async () => {
+  it('searches by imdb_id and normalizes the subtitles array', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         status: true,
-        results: [
+        results: [{ sd_id: 9929, name: 'The Movie', imdb_id: 'tt1234567' }],
+        subtitles: [
           {
-            id: 42,
-            name: 'Movie.2024.1080p.BluRay.x264-GRP',
+            name: 'Movie.2024.1080p.BluRay.x264-GRP.zip',
             release_name: 'Movie.2024.1080p.BluRay.x264-GRP',
             language: 'EN',
-            url: '/subtitle/abc123.zip',
-            downloads: 320,
-            rating: '7.9',
+            lang: 'English',
+            url: '/subtitle/3533939-8455827.zip?api_key=subdl-key',
             hi: false,
           },
         ],
@@ -68,25 +67,23 @@ describe('SubDLProvider.search', () => {
 
     const calledUrl = fetchMock.mock.calls[0][0];
     expect(calledUrl).toContain('api_key=subdl-key');
-    expect(calledUrl).toContain('film_id=tt1234567');
+    expect(calledUrl).toContain('imdb_id=tt1234567');
     expect(calledUrl).toContain('languages=en%2Cfr');
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
-      id: '42',
+      id: '3533939-8455827',
       provider: 'subdl',
       lang: 'en',
-      url: 'https://dl.subdl.com/subtitle/abc123.zip',
+      url: 'https://dl.subdl.com/subtitle/3533939-8455827.zip?api_key=subdl-key',
       releaseName: 'Movie.2024.1080p.BluRay.x264-GRP',
       hashMatch: false,
-      downloads: 320,
-      rating: 7.9,
       hearingImpaired: false,
     });
   });
 
   it('adds season/episode filters for series', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ results: [] }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: true, subtitles: [] }));
     vi.stubGlobal('fetch', fetchMock);
 
     const provider = new SubDLProvider(CONFIG);
