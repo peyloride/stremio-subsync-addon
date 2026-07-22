@@ -1,0 +1,17 @@
+node_modules
+.git
+data
+tests
+coverage
+.github
+.pi
+.pi-subagents
+openspec
+*.md
+!README.md
+eslint.config.js
+vitest.config.js
+.prettierrc*
+docker-compose.yml
+Dockerfile
+.dockerignore

@@ -1,0 +1,38 @@
+{
+  "found": true,
+  "subs": [
+    {
+      "id": 70001,
+      "language": "en",
+      "release": "Movie.2024.1080p.BluRay.x264-GRP",
+      "release_name": "Movie.2024.1080p.BluRay.x264-GRP",
+      "file_name": "Movie.2024.1080p.BluRay.x264-GRP.srt",
+      "downloads": 2100,
+      "rating": 9.0,
+      "hi": false,
+      "forced": false
+    },
+    {
+      "id": 70002,
+      "language": "pt",
+      "release": "Movie.2024.1080p.BluRay.x264-GRP",
+      "release_name": "Movie.2024.1080p.BluRay.x264-GRP",
+      "file_name": "Movie.2024.1080p.BluRay.x264-GRP.pt.srt",
+      "downloads": 380,
+      "rating": 7.4,
+      "hi": false,
+      "forced": false
+    },
+    {
+      "id": 70003,
+      "language": "en",
+      "release": "Movie.2024.720p.WEB-DL.x265-OTHER",
+      "release_name": "Movie.2024.720p.WEB-DL.x265-OTHER",
+      "file_name": "Movie.2024.720p.WEB-DL.x265-OTHER.srt",
+      "downloads": 700,
+      "rating": 6.5,
+      "hi": true,
+      "forced": false
+    }
+  ]
+}

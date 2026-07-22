@@ -1,0 +1,31 @@
+{
+  "status": true,
+  "results": [
+    {
+      "id": 60001,
+      "language": "en",
+      "url": "/subtitle/show-s01e05-en.zip",
+      "file_name": "Show.S01E05.720p.WEB-DL.x264.srt",
+      "release_name": "Show.S01E05.720p.WEB-DL.x264",
+      "name": "Show S01E05 English",
+      "downloads": 950,
+      "rating": 8.1,
+      "hi": false,
+      "season": 1,
+      "episode": 5
+    },
+    {
+      "id": 60002,
+      "language": "de",
+      "url": "/subtitle/show-s01e05-de.zip",
+      "file_name": "Show.S01E05.720p.WEB-DL.x264.de.srt",
+      "release_name": "Show.S01E05.720p.WEB-DL.x264",
+      "name": "Show S01E05 German",
+      "downloads": 320,
+      "rating": 6.9,
+      "hi": false,
+      "season": 1,
+      "episode": 5
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": true,
+  "results": [
+    {
+      "id": 50001,
+      "language": "en",
+      "url": "/subtitle/movie-2024-en.zip",
+      "file_name": "Movie.2024.1080p.BluRay.x264-GRP.srt",
+      "release_name": "Movie.2024.1080p.BluRay.x264-GRP",
+      "name": "Movie.2024.1080p.BluRay.x264-GRP",
+      "downloads": 1800,
+      "rating": 8.8,
+      "hi": false
+    },
+    {
+      "id": 50002,
+      "language": "fr",
+      "url": "/subtitle/movie-2024-fr.zip",
+      "file_name": "Movie.2024.1080p.BluRay.x264-GRP.fr.srt",
+      "release_name": "Movie.2024.1080p.BluRay.x264-GRP",
+      "name": "Movie.2024.1080p.BluRay.x264-GRP French",
+      "downloads": 450,
+      "rating": 7.2,
+      "hi": true
+    }
+  ]
+}

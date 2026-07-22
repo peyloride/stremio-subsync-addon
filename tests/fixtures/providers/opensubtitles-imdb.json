@@ -1,0 +1,73 @@
+{
+  "total_count": 3,
+  "total_pages": 1,
+  "page": 1,
+  "data": [
+    {
+      "id": "os-imdb-1",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "os-imdb-1",
+        "language": "English",
+        "release": "Movie.2024.720p.WEB-DL.x265-OTHER",
+        "download_count": 1200,
+        "rating": 8.0,
+        "hearing_impaired": false,
+        "foreign_parts_only": false,
+        "feature_details": {
+          "movie_name": "The Movie"
+        },
+        "files": [
+          {
+            "file_id": 91001,
+            "file_name": "Movie.2024.720p.WEB-DL.x265-OTHER.srt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "os-imdb-2",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "os-imdb-2",
+        "language": "Spanish",
+        "release": "Movie.2024.720p.WEB-DL.x265-OTHER",
+        "download_count": 600,
+        "rating": 7.0,
+        "hearing_impaired": false,
+        "foreign_parts_only": true,
+        "feature_details": {
+          "movie_name": "The Movie"
+        },
+        "files": [
+          {
+            "file_id": 91002,
+            "file_name": "Movie.2024.720p.WEB-DL.x265-OTHER.es.srt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "os-imdb-3",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "os-imdb-3",
+        "language": "English",
+        "release": "Movie.2024.1080p.BluRay.x264-GRP",
+        "download_count": 3000,
+        "rating": 9.5,
+        "hearing_impaired": true,
+        "foreign_parts_only": false,
+        "feature_details": {
+          "movie_name": "The Movie"
+        },
+        "files": [
+          {
+            "file_id": 91003,
+            "file_name": "Movie.2024.1080p.BluRay.x264-GRP.hi.srt"
+          }
+        ]
+      }
+    }
+  ]
+}

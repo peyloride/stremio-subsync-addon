@@ -1,0 +1,11 @@
+services:
+  subsync-addon:
+    build: .
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./data:/data/cache
+    environment:
+      - PORT=3100
+      - CACHE_DIR=/data/cache
+    restart: unless-stopped

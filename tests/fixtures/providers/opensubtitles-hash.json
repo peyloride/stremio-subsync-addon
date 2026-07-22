@@ -1,0 +1,51 @@
+{
+  "total_count": 2,
+  "total_pages": 1,
+  "page": 1,
+  "data": [
+    {
+      "id": "os-hash-1",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "os-hash-1",
+        "language": "English",
+        "release": "Movie.2024.1080p.BluRay.x264-GRP",
+        "download_count": 2500,
+        "rating": 9.2,
+        "hearing_impaired": false,
+        "foreign_parts_only": false,
+        "feature_details": {
+          "movie_name": "The Movie"
+        },
+        "files": [
+          {
+            "file_id": 90001,
+            "file_name": "Movie.2024.1080p.BluRay.x264-GRP.srt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "os-hash-2",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "os-hash-2",
+        "language": "French",
+        "release": "Movie.2024.1080p.BluRay.x264-GRP",
+        "download_count": 800,
+        "rating": 7.5,
+        "hearing_impaired": true,
+        "foreign_parts_only": false,
+        "feature_details": {
+          "movie_name": "The Movie"
+        },
+        "files": [
+          {
+            "file_id": 90002,
+            "file_name": "Movie.2024.1080p.BluRay.x264-GRP.fr.srt"
+          }
+        ]
+      }
+    }
+  ]
+}

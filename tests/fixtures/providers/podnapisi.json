@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "id": 80001,
+      "language": "en",
+      "release": "Movie.2024.1080p.BluRay.x264-GRP",
+      "filename": "Movie.2024.1080p.BluRay.x264-GRP.srt",
+      "downloads": 1600,
+      "rating": 8.4,
+      "flags": [],
+      "hearing_impaired": false,
+      "forced": false
+    },
+    {
+      "id": 80002,
+      "language": "es",
+      "release": "Movie.2024.1080p.BluRay.x264-GRP",
+      "filename": "Movie.2024.1080p.BluRay.x264-GRP.es.srt",
+      "downloads": 520,
+      "rating": 7.8,
+      "flags": ["hearing_impaired"],
+      "hearing_impaired": true,
+      "forced": false
+    }
+  ]
+}

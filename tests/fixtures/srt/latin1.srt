@@ -1,0 +1,12 @@
+1
+00:00:01,000 --> 00:00:04,000
+Le café est prêt, monsieur.
+
+2
+00:00:05,000 --> 00:00:08,000
+La niña juega en el jardín.
+
+3
+00:00:10,000 --> 00:00:13,000
+Das Mädchen trägt ein schönes Kleid.
+
