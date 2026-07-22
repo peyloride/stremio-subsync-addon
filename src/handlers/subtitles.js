@@ -180,6 +180,18 @@ async function cacheAndEmit({ cache, subtitles, videoKey, candidate, content, me
 }
 
 /**
+ * Fallback when syncing is impossible (the reference failed to download or the
+ * sync engine threw): serve the best candidate per language rather than
+ * collapsing every language into a single global best, so one bad reference or
+ * engine error cannot drop all but one language from the response.
+ */
+async function processBestPerLang({ uncached, filename, videoKey, cache, registry, subtitles }) {
+  for (const group of groupByLang(uncached).values()) {
+    await processBest({ uncached: group, filename, videoKey, cache, registry, subtitles });
+  }
+}
+
+/**
  * Sync-enabled path: download the group, sync every candidate against the
  * reference, cache and serve each result (the reference is stored unsynced).
  */
@@ -194,7 +206,7 @@ async function processSyncGroup({
   // If the reference itself failed to download we cannot sync — fall back to
   // serving the best candidate unsynced.
   if (!refWithContent) {
-    await processBest({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
+    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
     return;
   }
 
@@ -203,7 +215,7 @@ async function processSyncGroup({
     results = await syncSubtitles(withContent, refWithContent, filename, config);
   } catch (err) {
     console.error(`Sync failed: ${err?.message ?? err}`);
-    await processBest({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
+    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
     return;
   }
 

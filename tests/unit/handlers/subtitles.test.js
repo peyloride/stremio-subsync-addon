@@ -253,6 +253,74 @@ describe('createSubtitlesHandler', () => {
     expect(cache.put).toHaveBeenCalledTimes(2);
   });
 
+  it('falls back per language when the reference fails to download', async () => {
+    // Regression: a failed reference download must not collapse every language
+    // into one global best. Each language keeps its own best surviving candidate.
+    const candidates = [
+      sub({ id: 'sub-en', lang: 'en', downloads: 50 }),
+      sub({ id: 'sub-tr-ref', lang: 'tr', downloads: 1000, hashMatch: true }),
+      sub({ id: 'sub-tr-alt', lang: 'tr', downloads: 20 }),
+    ];
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const registry = makeRegistry(candidates, {
+      download: async (s) => {
+        if (s.id === 'sub-tr-ref') throw new Error('reference download failed');
+        return Buffer.from(`content-${s.id}`);
+      },
+    });
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    try {
+      const res = await handler({
+        ...MOVIE_ARGS,
+        config: { languages: 'en,tr', syncEnabled: true },
+      });
+
+      // The hash-matched reference (sub-tr-ref) failed to download, so sync
+      // never runs and each language is served its best surviving candidate.
+      expect(syncSubtitles).not.toHaveBeenCalled();
+      expect(res.subtitles).toHaveLength(2);
+      expect(res.subtitles.map((s) => s.lang).sort()).toEqual(['en', 'tr']);
+      expect(res.subtitles.map((s) => s.id).sort()).toEqual(['sub-en', 'sub-tr-alt']);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('falls back per language when the sync engine throws', async () => {
+    // Regression: a sync engine failure must not collapse every language into
+    // one global best. Each language keeps its own best candidate, unsynced.
+    const candidates = [
+      sub({ id: 'sub-en', lang: 'en', downloads: 50 }),
+      sub({ id: 'sub-tr', lang: 'tr', downloads: 1000, hashMatch: true }),
+    ];
+    syncSubtitles.mockImplementationOnce(async () => {
+      throw new Error('ffsubsync crashed');
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const registry = makeRegistry(candidates);
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    try {
+      const res = await handler({
+        ...MOVIE_ARGS,
+        config: { languages: 'en,tr', syncEnabled: true },
+      });
+
+      expect(syncSubtitles).toHaveBeenCalledTimes(1);
+      expect(res.subtitles).toHaveLength(2);
+      expect(res.subtitles.map((s) => s.lang).sort()).toEqual(['en', 'tr']);
+      // Both languages are served unsynced.
+      for (const call of cache.put.mock.calls) {
+        expect(call[3]).toMatchObject({ synced: false, referenceId: null });
+      }
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it('handles a series request, parsing season and episode into the query', async () => {
     const registry = makeRegistry([sub({ id: 'sub-1' })]);
     const cache = makeCache();
