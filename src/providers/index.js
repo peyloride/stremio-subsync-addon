@@ -9,15 +9,14 @@
 
 import { normalizeLang } from '../utils/language.js';
 import { matchScore } from '../utils/release-match.js';
+import { errorDetails, logEvent } from '../utils/logging.js';
 import { validateProvider } from './base.js';
 import { OpenSubtitlesProvider } from './opensubtitles.js';
 import { SubDLProvider } from './subdl.js';
 import { SubsourceProvider } from './subsource.js';
-import { OpenSubtitlesLegacyProvider } from './opensubtitles-legacy.js';
 
 export {
   OpenSubtitlesProvider,
-  OpenSubtitlesLegacyProvider,
   SubDLProvider,
   SubsourceProvider,
 };
@@ -25,9 +24,10 @@ export {
 const DEFAULT_TIMEOUT_MS = 10000;
 
 /**
- * Build the default provider list from config. Keyed providers are only
- * included when their key is configured. The legacy OpenSubtitles REST
- * provider is always included (no key needed).
+ * Build the default provider list from config. Modern providers are only
+ * included when their application API key is configured. OpenSubtitles uses
+ * api.opensubtitles.com; the deprecated legacy REST fallback is intentionally
+ * not instantiated.
  *
  * @param {object} config
  * @returns {import('./base.js').SubtitleProvider[]}
@@ -37,8 +37,6 @@ export function createDefaultProviders(config = {}) {
   if (config.opensubtitlesApiKey) providers.push(new OpenSubtitlesProvider(config));
   if (config.subdlApiKey) providers.push(new SubDLProvider(config));
   if (config.subsourceApiKey) providers.push(new SubsourceProvider(config));
-  // Keyless fallback: legacy OpenSubtitles REST (no key needed)
-  providers.push(new OpenSubtitlesLegacyProvider(config));
   return providers;
 }
 
@@ -137,26 +135,44 @@ export class ProviderRegistry {
    */
   async searchAll(query) {
     const settled = await Promise.allSettled(
-      this.providers.map((provider) =>
-        withTimeout(
+      this.providers.map((provider) => {
+        logEvent('provider_search_start', {
+          requestId: query.requestId ?? null,
+          provider: provider.name,
+          type: query.type ?? null,
+          imdbId: query.imdbId ?? null,
+          season: query.season ?? null,
+          episode: query.episode ?? null,
+          languages: query.languages ?? [],
+          hasVideoHash: Boolean(query.videoHash),
+          hasFilename: Boolean(query.filename),
+        });
+        return withTimeout(
           Promise.resolve().then(() => provider.search(query)),
           this.timeoutMs,
           provider.name,
-        ),
-      ),
+        );
+      }),
     );
 
     const merged = [];
     settled.forEach((result, index) => {
       const provider = this.providers[index];
       if (result.status === 'fulfilled') {
-        if (Array.isArray(result.value)) merged.push(...result.value);
+        const providerResults = Array.isArray(result.value) ? result.value : [];
+        logEvent('provider_search_complete', {
+          requestId: query.requestId ?? null,
+          provider: provider.name,
+          resultCount: providerResults.length,
+        });
+        merged.push(...providerResults.map((sub) => ({ ...sub, requestId: query.requestId ?? null })));
       } else {
         const reason = result.reason;
-        const message = reason?.message ?? String(reason);
-        const cause = reason?.cause;
-        const causeDetail = cause ? ` (cause: ${cause.message ?? cause}${cause.code ? ` ${cause.code}` : ''})` : '';
-        console.error(`Provider "${provider.name}" search failed: ${message}${causeDetail}`);
+        logEvent('provider_search_error', {
+          requestId: query.requestId ?? null,
+          provider: provider.name,
+          ...errorDetails(reason),
+        }, 'error');
       }
     });
 
@@ -164,7 +180,14 @@ export class ProviderRegistry {
       sub.lang = normalizeLang(sub.lang);
     }
 
-    return deduplicate(merged, query);
+    const deduplicated = deduplicate(merged, query);
+    logEvent('provider_search_merged', {
+      requestId: query.requestId ?? null,
+      providerCount: this.providers.length,
+      rawResultCount: merged.length,
+      resultCount: deduplicated.length,
+    });
+    return deduplicated;
   }
 
   /**
@@ -180,6 +203,32 @@ export class ProviderRegistry {
     if (!provider) {
       throw new Error(`download: unknown provider "${sub.provider}"`);
     }
-    return provider.download(sub);
+    const requestId = sub.requestId ?? null;
+    const started = Date.now();
+    logEvent('provider_download_start', {
+      requestId,
+      provider: provider.name,
+      subtitleId: sub.id ?? null,
+    });
+    try {
+      const content = await provider.download(sub);
+      logEvent('provider_download_complete', {
+        requestId,
+        provider: provider.name,
+        subtitleId: sub.id ?? null,
+        bytes: content?.length ?? 0,
+        durationMs: Date.now() - started,
+      });
+      return content;
+    } catch (error) {
+      logEvent('provider_download_error', {
+        requestId,
+        provider: provider.name,
+        subtitleId: sub.id ?? null,
+        durationMs: Date.now() - started,
+        ...errorDetails(error),
+      }, 'error');
+      throw error;
+    }
   }
 }

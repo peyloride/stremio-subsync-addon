@@ -19,6 +19,7 @@
  */
 
 import { normalizeLang } from '../utils/language.js';
+import { fetchLogged, logEvent } from '../utils/logging.js';
 
 const BASE_URL = 'https://api.opensubtitles.com/api/v1';
 const USER_AGENT = 'stremio-subsync-addon/1.0';
@@ -70,13 +71,13 @@ export class OpenSubtitlesProvider {
    * fetch JSON with the provider headers, a request timeout, and a single
    * retry honoring Retry-After on HTTP 429.
    */
-  async _fetchJson(url, options = {}) {
+  async _fetchJson(url, options = {}, context = {}) {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await globalThis.fetch(url, {
+      const res = await fetchLogged(this.name, url, {
         ...options,
         headers: { ...this._headers(), ...(options.headers || {}) },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
+      }, context);
 
       if (res.status === 429) {
         if (attempt < MAX_RETRIES) {
@@ -123,8 +124,16 @@ export class OpenSubtitlesProvider {
       return [];
     }
 
-    const json = await this._fetchJson(`${BASE_URL}/subtitles?${params.toString()}`);
-    return this._normalize(json, hashMatch);
+    const url = `${BASE_URL}/subtitles?${params.toString()}`;
+    const json = await this._fetchJson(url, {}, { requestId: query.requestId, action: 'search' });
+    const results = this._normalize(json, hashMatch);
+    logEvent('provider_result_count', {
+      requestId: query.requestId ?? null,
+      provider: this.name,
+      action: 'search',
+      resultCount: results.length,
+    });
+    return results;
   }
 
   _applySeriesParams(params, query) {
@@ -175,15 +184,15 @@ export class OpenSubtitlesProvider {
     const json = await this._fetchJson(`${BASE_URL}/download`, {
       method: 'POST',
       body: JSON.stringify({ file_id: Number(fileId) }),
-    });
+    }, { requestId: sub.requestId, action: 'download-link' });
 
     const link = json?.link;
     if (!link) throw new Error('OpenSubtitles download: no link returned');
 
-    const res = await globalThis.fetch(link, {
+    const res = await fetchLogged(this.name, link, {
       headers: { 'User-Agent': USER_AGENT },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    }, { requestId: sub.requestId, action: 'download-file' });
     if (!res.ok) {
       throw new Error(`OpenSubtitles download failed: HTTP ${res.status}`);
     }

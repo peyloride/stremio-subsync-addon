@@ -18,6 +18,11 @@ import { parseConfig } from '../config.js';
 import { selectReference, compositeScore } from '../sync/reference.js';
 import { syncSubtitles } from '../sync/engine.js';
 import { checkFfsubsyncAvailable } from '../sync/ffsubsync.js';
+import {
+  createRequestId,
+  logEvent,
+  summarizeConfig,
+} from '../utils/logging.js';
 
 /** 24h client-side caching for Stremio, per the addon-server spec. */
 export const CACHE_MAX_AGE = 86400;
@@ -276,12 +281,41 @@ export function createSubtitlesHandler(deps = {}) {
   }
 
   return async function subtitlesHandler(args = {}) {
+    const requestId = args.requestId || createRequestId();
+    const started = Date.now();
     const config = parseConfig(args.config ?? {});
     // Build the registry from the per-request config so API keys supplied via
     // the Stremio install URL are picked up. Tests may inject a fixed registry.
     const registry = createRegistry ? createRegistry(config) : fixedRegistry;
     const extra = args.extra ?? {};
     const parsed = parseVideoId(args.type, args.id);
+    const finish = (result, reason) => {
+      logEvent('subtitle_request_complete', {
+        requestId,
+        type: parsed.type,
+        id: args.id ?? null,
+        subtitleCount: result.subtitles.length,
+        reason,
+        durationMs: Date.now() - started,
+      });
+      return result;
+    };
+
+    logEvent('subtitle_request_start', {
+      requestId,
+      type: parsed.type,
+      id: args.id ?? null,
+      imdbId: parsed.imdbId,
+      season: parsed.season,
+      episode: parsed.episode,
+      extra: {
+        videoHash: nonEmpty(extra.videoHash) ?? null,
+        videoSize: extra.videoSize ?? null,
+        filename: nonEmpty(extra.filename) ?? null,
+      },
+      config: summarizeConfig(config),
+      providers: Array.isArray(registry.providers) ? registry.providers.map((p) => p.name) : [],
+    });
 
     const videoHash = nonEmpty(extra.videoHash);
     const filename = nonEmpty(extra.filename);
@@ -299,11 +333,11 @@ export function createSubtitlesHandler(deps = {}) {
       season: parsed.season,
       episode: parsed.episode,
     });
-    if (!videoKey) return empty;
+    if (!videoKey) return finish(empty, 'missing-video-key');
 
     // No providers configured → nothing to search.
     if (Array.isArray(registry.providers) && registry.providers.length === 0) {
-      return empty;
+      return finish(empty, 'no-providers');
     }
 
     const query = {
@@ -315,16 +349,24 @@ export function createSubtitlesHandler(deps = {}) {
       season: parsed.season,
       episode: parsed.episode,
       languages: config.languages,
+      requestId,
     };
 
     let candidates;
     try {
       candidates = await registry.searchAll(query);
     } catch (err) {
-      console.error(`Subtitle search failed: ${err?.message ?? err}`);
-      return empty;
+      logEvent('subtitle_search_error', {
+        requestId,
+        error: err?.message ?? String(err),
+      }, 'error');
+      return finish(empty, 'search-error');
     }
-    if (!Array.isArray(candidates) || candidates.length === 0) return empty;
+    logEvent('subtitle_search_complete', {
+      requestId,
+      candidateCount: Array.isArray(candidates) ? candidates.length : 0,
+    });
+    if (!Array.isArray(candidates) || candidates.length === 0) return finish(empty, 'no-results');
 
     const syncAvailable = await isSyncAvailable();
     if (config.syncEnabled && !syncAvailable) {
@@ -364,6 +406,6 @@ export function createSubtitlesHandler(deps = {}) {
       }
     }
 
-    return { subtitles, cacheMaxAge: CACHE_MAX_AGE };
+    return finish({ subtitles, cacheMaxAge: CACHE_MAX_AGE }, 'complete');
   };
 }

@@ -14,6 +14,7 @@
  */
 
 import { normalizeLang } from '../utils/language.js';
+import { fetchLogged, logEvent } from '../utils/logging.js';
 
 const BASE_URL = 'https://api.subdl.com/api/v1';
 const DOWNLOAD_HOST = 'https://dl.subdl.com';
@@ -49,16 +50,26 @@ export class SubDLProvider {
       if (query.episode != null) params.set('episode_number', String(query.episode));
     }
 
-    const res = await globalThis.fetch(`${BASE_URL}/subtitles?${params.toString()}`, {
+    const url = `${BASE_URL}/subtitles?${params.toString()}`;
+    const res = await fetchLogged(this.name, url, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    }, { requestId: query.requestId, action: 'search' });
     if (!res.ok) {
       throw new Error(`SubDL API error: HTTP ${res.status}`);
     }
 
     const json = await res.json();
-    return this._normalize(json);
+    const results = this._normalize(json);
+    logEvent('provider_result_count', {
+      requestId: query.requestId ?? null,
+      provider: this.name,
+      action: 'search',
+      resultCount: results.length,
+      apiStatus: json?.status ?? null,
+      apiError: json?.error ?? null,
+    });
+    return results;
   }
 
   _normalize(json) {
@@ -96,9 +107,9 @@ export class SubDLProvider {
   async download(sub) {
     if (!sub?.url) throw new Error('SubDL download: missing url');
 
-    const res = await globalThis.fetch(sub.url, {
+    const res = await fetchLogged(this.name, sub.url, {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    }, { requestId: sub.requestId, action: 'download' });
     if (!res.ok) {
       throw new Error(`SubDL download failed: HTTP ${res.status}`);
     }

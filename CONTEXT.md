@@ -19,10 +19,9 @@ src/
 ├── providers/
 │   ├── base.js            # SubtitleProvider interface (JSDoc typedefs)
 │   ├── index.js           # ProviderRegistry: parallel search, dedup, normalization
-│   ├── opensubtitles.js   # OpenSubtitles REST API v1 (needs API key)
+│   ├── opensubtitles.js   # OpenSubtitles.com REST API v1 (needs application API key)
 │   ├── subdl.js           # SubDL API (needs API key)
-│   ├── subsource.js       # Subsource API (no key)
-│   └── podnapisi.js       # Podnapisi (no key)
+│   └── subsource.js       # Subsource API v1 (needs API key)
 ├── sync/
 │   ├── reference.js       # Selection cascade: hash > release-name > score
 │   ├── ffsubsync.js       # Subprocess wrapper (spawn, 30s timeout, parse output)
@@ -37,7 +36,8 @@ src/
     ├── language.js        # ISO 639-1/639-2/name normalization
     ├── release-match.js   # Release name token parsing and matching
     ├── archive.js         # ZIP/GZ extraction (adm-zip)
-    └── encoding.js        # Encoding detection (chardet) + conversion (iconv-lite)
+    ├── encoding.js        # Encoding detection (chardet) + conversion (iconv-lite)
+    └── logging.js         # Request IDs, structured logs, URL/config secret redaction
 ```
 
 ## Endpoints
@@ -54,10 +54,9 @@ Series ID format: `tt1234567:1:5` (imdbId:season:episode).
 ## External dependencies
 
 - ffsubsync (`pip install ffsubsync`): Python subprocess for SRT-to-SRT sync
-- OpenSubtitles REST API: needs user API key, free tier is 10 req/s and 100 downloads/day
+- OpenSubtitles.com REST API v1: needs an application API key; the deprecated `.org` REST fallback is not used
 - SubDL API: needs user API key
-- Subsource API: no key
-- Podnapisi: no key
+- Subsource API v1: needs API key
 
 ## Configuration
 
@@ -66,6 +65,7 @@ Series ID format: `tt1234567:1:5` (imdbId:season:episode).
 | `languages` | `["en"]` | Stremio config UI |
 | `opensubtitlesApiKey` | `""` | Stremio config UI |
 | `subdlApiKey` | `""` | Stremio config UI |
+| `subsourceApiKey` | `""` | Stremio config UI |
 | `syncEnabled` | `true` | Stremio config UI |
 | `maxOffsetSeconds` | `120` | Stremio config UI |
 | `cacheTtlDays` | `30` | Stremio config UI |
@@ -74,7 +74,7 @@ Series ID format: `tt1234567:1:5` (imdbId:season:episode).
 
 ## Testing
 
-Vitest with two projects: `unit` (no Python needed) and `integration` (needs ffsubsync). Provider HTTP calls mocked with MSW. ffsubsync mocked via child_process spy in unit tests, real in integration. Coverage via `@vitest/coverage-v8` with thresholds (providers 80%, sync/cache/utils 90%, overall 75%).
+Vitest with two projects: `unit` (no Python needed) and `integration` (needs ffsubsync). Provider HTTP calls mocked with MSW. ffsubsync mocked via child_process spy in unit tests, real in integration. Provider requests emit structured JSON logs with request IDs, redacted URLs, HTTP status, latency, result counts, and errors. Coverage via `@vitest/coverage-v8` with thresholds (providers 80%, sync/cache/utils 90%, overall 75%).
 
 ```bash
 npm run test              # all

@@ -10,7 +10,7 @@ The problem: subtitle addons hand you whatever file the provider has, and half t
 
 ## What it does
 
-Searches OpenSubtitles, SubDL, Subsource, and Podnapisi in parallel. If one of the results matches your video hash (meaning someone uploaded a subtitle for your exact file), that becomes the sync reference. Otherwise it falls back to release-name matching, then download count. Everything that isn't the reference gets synced against it. Results are cached on disk so the second request is instant.
+Searches OpenSubtitles.com, SubDL, and Subsource in parallel when their application API keys are configured. If one of the results matches your video hash (meaning someone uploaded a subtitle for your exact file), that becomes the sync reference. Otherwise it falls back to release-name matching, then download count. Everything that isn't the reference gets synced against it. Results are cached on disk so the second request is instant.
 
 No Bazarr, no Sonarr, no Radarr. Just a single HTTP server.
 
@@ -48,13 +48,14 @@ All settings are in Stremio's addon config UI after you install it.
 | Setting | Default | What it does |
 |---|---|---|
 | Languages | `en` | Subtitle languages to fetch (ISO 639-1 codes) |
-| OpenSubtitles API Key | *(empty)* | Required for OpenSubtitles. Free at opensubtitles.com |
+| OpenSubtitles.com API Key | *(empty)* | Application key for the modern OpenSubtitles.com API |
 | SubDL API Key | *(empty)* | Required for SubDL |
+| Subsource API Key | *(empty)* | Required for Subsource |
 | Sync Enabled | `true` | Turn off to skip ffsubsync and serve provider results as-is |
 | Max Offset (seconds) | `120` | If ffsubsync reports a bigger offset than this, the sync result is discarded |
 | Cache TTL (days) | `30` | How long synced files stick around on disk |
 
-Subsource and Podnapisi don't need API keys.
+The deprecated OpenSubtitles.org fallback is not used. If no API key is configured, no providers are searched. Provider requests, HTTP statuses, durations, zero-result responses, and errors are emitted as structured JSON logs with credentials redacted.
 
 ## Development
 
@@ -65,7 +66,7 @@ npm run test:integration  # Needs ffsubsync on PATH
 npm run test              # Both
 ```
 
-215 tests across 19 files. Coverage thresholds enforced: providers at 80%, sync/cache/utils at 90%.
+216 tests across 19 files. Coverage thresholds enforced: providers at 80%, sync/cache/utils at 90%.
 
 ## Limitations
 

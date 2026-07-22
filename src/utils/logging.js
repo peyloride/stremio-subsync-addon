@@ -1,0 +1,111 @@
+import { randomUUID } from 'node:crypto';
+
+const SECRET_PARAM = /(?:api[_-]?key|apikey|key|token|secret|auth|authorization)/i;
+const SECRET_HEADER = /(?:api[_-]?key|apikey|authorization|proxy-authorization|token|secret)/i;
+
+/** Create a short correlation id for one Stremio subtitle request. */
+export function createRequestId() {
+  return randomUUID().slice(0, 12);
+}
+
+/** Redact credentials from URLs before they are written to logs. */
+export function redactUrl(value) {
+  const input = String(value ?? '');
+  try {
+    const url = new URL(input);
+    if (url.username || url.password) {
+      url.username = '[redacted]';
+      url.password = '[redacted]';
+    }
+    for (const key of [...url.searchParams.keys()]) {
+      if (SECRET_PARAM.test(key)) url.searchParams.set(key, '[redacted]');
+    }
+    return url.toString();
+  } catch {
+    return input.replace(/(api[_-]?key|token|secret|authorization)=?[^&\s]*/gi, '$1=[redacted]');
+  }
+}
+
+/** Return only safe configuration facts; never log key values. */
+export function summarizeConfig(config = {}) {
+  const summary = {
+    languages: Array.isArray(config.languages) ? config.languages : [],
+    syncEnabled: Boolean(config.syncEnabled),
+    maxOffsetSeconds: config.maxOffsetSeconds,
+    cacheTtlDays: config.cacheTtlDays,
+  };
+  for (const key of ['opensubtitlesApiKey', 'subdlApiKey', 'subsourceApiKey']) {
+    summary[key] = config[key] ? 'configured' : 'not-configured';
+  }
+  return summary;
+}
+
+/** Log one structured event. Fields passed here must already be safe. */
+export function logEvent(event, fields = {}, level = 'log') {
+  const payload = {
+    time: new Date().toISOString(),
+    event,
+    ...fields,
+  };
+  // JSON output makes Coolify logs searchable while retaining readable fields.
+  console[level](JSON.stringify(payload));
+}
+
+export function errorDetails(error) {
+  const cause = error?.cause;
+  return {
+    error: error?.message ?? String(error),
+    code: cause?.code ?? error?.code ?? undefined,
+    cause: cause?.message ?? undefined,
+  };
+}
+
+/**
+ * Fetch with start/response/error logging. Each invocation represents one
+ * actual upstream attempt, so retry loops produce one event per attempt.
+ */
+export async function fetchLogged(provider, url, options = {}, context = {}) {
+  const started = Date.now();
+  const method = options.method || 'GET';
+  const safeUrl = redactUrl(url);
+  logEvent('provider_http_request', {
+    requestId: context.requestId ?? null,
+    provider,
+    action: context.action ?? 'request',
+    attempt: context.attempt ?? null,
+    method,
+    url: safeUrl,
+  });
+  try {
+    const response = await globalThis.fetch(url, options);
+    logEvent('provider_http_response', {
+      requestId: context.requestId ?? null,
+      provider,
+      action: context.action ?? 'request',
+      attempt: context.attempt ?? null,
+      method,
+      url: safeUrl,
+      status: response.status,
+      ok: response.ok,
+      durationMs: Date.now() - started,
+    });
+    return response;
+  } catch (error) {
+    logEvent('provider_http_error', {
+      requestId: context.requestId ?? null,
+      provider,
+      action: context.action ?? 'request',
+      attempt: context.attempt ?? null,
+      method,
+      url: safeUrl,
+      durationMs: Date.now() - started,
+      ...errorDetails(error),
+    }, 'error');
+    throw error;
+  }
+}
+
+/** Check whether a header name could contain a credential. */
+export function isSecretHeader(name) {
+  return SECRET_HEADER.test(String(name));
+}
