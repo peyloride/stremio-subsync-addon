@@ -265,17 +265,16 @@ describe('createSubtitlesHandler', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves cached entries directly without downloading or syncing', async () => {
+  it('does not reuse cached entries between requests', async () => {
     const registry = makeRegistry([sub({ id: 'sub-1' })]);
     const cache = makeCache({ has: true });
     const handler = buildHandler({ registry, cache });
 
     const res = await handler(MOVIE_ARGS);
 
-    expect(cache.has).toHaveBeenCalledWith('abc123', 'sub-1');
-    expect(registry.download).not.toHaveBeenCalled();
-    expect(syncSubtitles).not.toHaveBeenCalled();
-    expect(cache.put).not.toHaveBeenCalled();
+    expect(cache.has).not.toHaveBeenCalled();
+    expect(registry.download).toHaveBeenCalledTimes(1);
+    expect(cache.put).toHaveBeenCalledTimes(1);
     expect(res.subtitles).toEqual([
       { id: 'sub-1', url: '/sub/abc123/sub-1.srt', lang: 'en' },
     ]);

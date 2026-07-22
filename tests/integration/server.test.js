@@ -57,8 +57,8 @@ describe('addon HTTP endpoints', () => {
     // The SDK router echoes cacheMaxAge in the body and maps it to the
     // Cache-Control header.
     expect(res.body.subtitles).toEqual([]);
-    expect(res.body.cacheMaxAge).toBe(86400);
-    expect(res.headers['cache-control']).toContain('max-age=86400');
+    expect(res.body.cacheMaxAge).toBe(0);
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 
   it('accepts series ids with season and episode', async () => {

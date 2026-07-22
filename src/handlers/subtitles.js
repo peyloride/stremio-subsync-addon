@@ -26,7 +26,8 @@ import {
 } from '../utils/logging.js';
 
 /** 24h client-side caching for Stremio, per the addon-server spec. */
-export const CACHE_MAX_AGE = 86400;
+// Do not let Stremio/AIOStreams reuse a subtitle response between requests.
+export const CACHE_MAX_AGE = 0;
 
 /**
  * Parse a Stremio video id into its components.
@@ -398,20 +399,10 @@ export function createSubtitlesHandler(deps = {}) {
     const subtitles = [];
 
     for (const group of groupByLang(candidates).values()) {
-      // Cache check per known subId; cached entries are served directly.
-      const uncached = [];
-      for (const cand of group) {
-        const sid = sanitizeSegment(cand.id);
-        if (await cache.has(videoKey, sid)) {
-          subtitles.push({
-            id: sid,
-            url: subtitleUrl(videoKey, sid, extOf(cand)),
-            lang: cand.lang,
-          });
-        } else {
-          uncached.push(cand);
-        }
-      }
+      // Subtitle files are retained only as temporary delivery storage for the
+      // client's follow-up /sub request. Never reuse them between requests:
+      // provider results and synchronization must always be fresh.
+      const uncached = group;
       if (uncached.length === 0) continue;
 
       const reference = selectReference(uncached, filename);

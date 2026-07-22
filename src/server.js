@@ -88,12 +88,22 @@ export function createApp(config = parseConfig(), deps = {}) {
   // Cache-Control: no-store for manifest (Stremio needs fresh manifests),
   // long cache for everything else.
   app.use((req, res, next) => {
-    if (!res.getHeader('Cache-Control')) {
-      if (req.path.endsWith('/manifest.json')) {
+    const noStore =
+      req.path.endsWith('/manifest.json') ||
+      req.path.includes('/subtitles/') ||
+      req.path.startsWith('/sub/');
+
+    if (noStore) {
+      res.setHeader('Cache-Control', 'no-store');
+      // The SDK applies cacheMaxAge after the handler returns. Reassert
+      // no-store immediately before Node writes the response headers.
+      const writeHead = res.writeHead;
+      res.writeHead = function writeHeadNoStore(...args) {
         res.setHeader('Cache-Control', 'no-store');
-      } else {
-        res.setHeader('Cache-Control', `max-age=${DEFAULT_CACHE_MAX_AGE}, public`);
-      }
+        return writeHead.apply(this, args);
+      };
+    } else if (!res.getHeader('Cache-Control')) {
+      res.setHeader('Cache-Control', `max-age=${DEFAULT_CACHE_MAX_AGE}, public`);
     }
     next();
   });
