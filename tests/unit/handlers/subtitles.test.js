@@ -251,6 +251,20 @@ describe('createSubtitlesHandler', () => {
     expect(res.subtitles[0].url).toBe('/sub/abc123/sub-1.srt');
   });
 
+  it('emits absolute subtitle URLs when a public base URL is configured', async () => {
+    vi.stubEnv('PUBLIC_URL', 'https://subsync.example.test/');
+    const registry = makeRegistry([sub({ id: 'sub-1' })]);
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    const res = await handler(MOVIE_ARGS);
+
+    expect(res.subtitles[0].url).toBe(
+      'https://subsync.example.test/sub/abc123/sub-1.srt',
+    );
+    vi.unstubAllEnvs();
+  });
+
   it('serves cached entries directly without downloading or syncing', async () => {
     const registry = makeRegistry([sub({ id: 'sub-1' })]);
     const cache = makeCache({ has: true });

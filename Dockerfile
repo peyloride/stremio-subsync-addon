@@ -34,7 +34,8 @@ COPY src/ ./src/
 # Runtime configuration
 ENV NODE_ENV=production \
     PORT=3100 \
-    CACHE_DIR=/data/cache
+    CACHE_DIR=/data/cache \
+    PUBLIC_URL=https://subsync.peyloride.com
 
 # Create cache directory and set ownership to the non-root node user
 RUN mkdir -p /data/cache && chown -R node:node /data/cache /app

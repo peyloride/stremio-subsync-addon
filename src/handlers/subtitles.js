@@ -104,6 +104,13 @@ function extOf(candidate) {
   return '.srt';
 }
 
+/** Build a URL that remains valid when an aggregator forwards our response. */
+function subtitleUrl(videoKey, subtitleId, extension) {
+  const path = `/sub/${videoKey}/${subtitleId}${extension}`;
+  const base = String(process.env.PUBLIC_URL || '').trim().replace(/\/$/, '');
+  return base ? `${base}${path}` : path;
+}
+
 /** Group subtitles by their (normalized) language code. */
 function groupByLang(subs) {
   const groups = new Map();
@@ -168,7 +175,7 @@ async function cacheAndEmit({ cache, subtitles, videoKey, candidate, content, me
     console.error(`Cache put failed for ${sid}: ${err?.message ?? err}`);
     return;
   }
-  subtitles.push({ id: sid, url: `/sub/${videoKey}/${sid}${ext}`, lang: candidate.lang });
+  subtitles.push({ id: sid, url: subtitleUrl(videoKey, sid, ext), lang: candidate.lang });
 }
 
 /**
@@ -398,7 +405,7 @@ export function createSubtitlesHandler(deps = {}) {
         if (await cache.has(videoKey, sid)) {
           subtitles.push({
             id: sid,
-            url: `/sub/${videoKey}/${sid}${extOf(cand)}`,
+            url: subtitleUrl(videoKey, sid, extOf(cand)),
             lang: cand.lang,
           });
         } else {
