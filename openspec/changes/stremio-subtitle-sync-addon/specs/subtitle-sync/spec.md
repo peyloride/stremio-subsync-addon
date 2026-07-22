@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Reference subtitle selection
-The system SHALL select the best reference subtitle from the candidate list using a priority cascade: (1) exact videoHash match, (2) release-name match against the video filename, (3) highest composite score (downloads × rating). If only one candidate exists or none qualify, no sync SHALL be performed and the subtitle SHALL be served as-is.
+The system SHALL select a reference subtitle from the candidate list only when it is known to be timed to the same video, using a priority cascade: (1) exact videoHash match, (2) release-name match against the video filename. If no candidate hash-matches or release-name-matches, or only one candidate exists, no sync SHALL be performed and subtitles SHALL be served unsynced (best candidate per language). The system SHALL NOT select a reference by popularity (downloads × rating) alone, because syncing against an unmatched reference is a blind guess that can corrupt already-correct timing.
 
 #### Scenario: Hash-matched reference available
 - **WHEN** the candidate list contains one or more subtitles with `hashMatch: true`
@@ -11,9 +11,9 @@ The system SHALL select the best reference subtitle from the candidate list usin
 - **WHEN** no hash-matched subtitle exists but a candidate's `releaseName` matches the video `filename` (case-insensitive substring match on the release group and resolution tokens)
 - **THEN** the system SHALL select the best release-name-matched subtitle as the reference
 
-#### Scenario: Score-based fallback
-- **WHEN** no hash or release-name match exists
-- **THEN** the system SHALL select the subtitle with the highest composite score as the reference
+#### Scenario: No qualifying reference
+- **WHEN** no candidate hash-matches or release-name-matches the video
+- **THEN** the system SHALL NOT sync and SHALL serve each language's best candidate unsynced (the highest composite score is used only to choose which unsynced subtitle to serve, never to choose a sync reference)
 
 #### Scenario: Single candidate
 - **WHEN** only one subtitle candidate exists for a given language

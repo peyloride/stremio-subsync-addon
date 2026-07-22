@@ -124,8 +124,9 @@ function groupByLang(subs) {
 }
 
 /**
- * Pick the single best candidate to serve unsynced. Mirrors the reference
- * cascade but always returns one candidate for a non-empty list.
+ * Pick the single best candidate to serve unsynced. Prefers a hash/release
+ * matched candidate; with no match, falls back to the highest composite score.
+ * Always returns one candidate for a non-empty list.
  */
 function pickBest(candidates, filename) {
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
@@ -150,15 +151,19 @@ async function downloadCandidate(candidate, registry) {
 }
 
 /** Download all candidates, dropping (and logging) any that fail. */
-async function downloadAll(candidates, registry) {
+async function downloadAll(candidates, registry, requestId) {
   const settled = await Promise.all(
     candidates.map(async (cand) => {
       try {
         return await downloadCandidate(cand, registry);
       } catch (err) {
-        console.error(
-          `Download failed for ${cand.provider ?? '?'}/${cand.id}: ${err?.message ?? err}`,
-        );
+        logEvent('subtitle_download_failed', {
+          requestId,
+          provider: cand.provider ?? null,
+          subtitleId: cand.id ?? null,
+          lang: cand.lang ?? null,
+          error: err?.message ?? String(err),
+        }, 'error');
         return null;
       }
     }),
@@ -167,13 +172,18 @@ async function downloadAll(candidates, registry) {
 }
 
 /** Cache one subtitle and push its response object. */
-async function cacheAndEmit({ cache, subtitles, videoKey, candidate, content, meta }) {
+async function cacheAndEmit({ cache, subtitles, videoKey, candidate, content, meta, requestId }) {
   const sid = sanitizeSegment(candidate.id);
   const ext = extOf(candidate);
   try {
     await cache.put(videoKey, sid, content, meta, ext);
   } catch (err) {
-    console.error(`Cache put failed for ${sid}: ${err?.message ?? err}`);
+    logEvent('subtitle_cache_failed', {
+      requestId,
+      subtitleId: sid,
+      lang: candidate.lang ?? null,
+      error: err?.message ?? String(err),
+    }, 'error');
     return;
   }
   subtitles.push({ id: sid, url: subtitleUrl(videoKey, sid, ext), lang: candidate.lang });
@@ -185,9 +195,9 @@ async function cacheAndEmit({ cache, subtitles, videoKey, candidate, content, me
  * collapsing every language into a single global best, so one bad reference or
  * engine error cannot drop all but one language from the response.
  */
-async function processBestPerLang({ uncached, filename, videoKey, cache, registry, subtitles }) {
+async function processBestPerLang({ uncached, filename, videoKey, cache, registry, subtitles, requestId }) {
   for (const group of groupByLang(uncached).values()) {
-    await processBest({ uncached: group, filename, videoKey, cache, registry, subtitles });
+    await processBest({ uncached: group, filename, videoKey, cache, registry, subtitles, requestId });
   }
 }
 
@@ -196,9 +206,9 @@ async function processBestPerLang({ uncached, filename, videoKey, cache, registr
  * reference, cache and serve each result (the reference is stored unsynced).
  */
 async function processSyncGroup({
-  uncached, reference, filename, config, videoKey, cache, registry, subtitles,
+  uncached, reference, filename, config, videoKey, cache, registry, subtitles, requestId,
 }) {
-  const withContent = await downloadAll(uncached, registry);
+  const withContent = await downloadAll(uncached, registry, requestId);
   if (withContent.length === 0) return;
 
   const refWithContent = withContent.find((c) => c.id === reference.id) ?? null;
@@ -206,7 +216,7 @@ async function processSyncGroup({
   // If the reference itself failed to download we cannot sync — fall back to
   // serving the best candidate unsynced.
   if (!refWithContent) {
-    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
+    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles, requestId });
     return;
   }
 
@@ -214,8 +224,12 @@ async function processSyncGroup({
   try {
     results = await syncSubtitles(withContent, refWithContent, filename, config);
   } catch (err) {
-    console.error(`Sync failed: ${err?.message ?? err}`);
-    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles });
+    logEvent('subtitle_sync_failed', {
+      requestId,
+      referenceId: reference.id ?? null,
+      error: err?.message ?? String(err),
+    }, 'error');
+    await processBestPerLang({ uncached: withContent, filename, videoKey, cache, registry, subtitles, requestId });
     return;
   }
 
@@ -224,7 +238,7 @@ async function processSyncGroup({
     const cand = byId.get(result.id);
     if (!cand) continue;
     await cacheAndEmit({
-      cache, subtitles, videoKey,
+      cache, subtitles, videoKey, requestId,
       candidate: { ...cand, lang: result.lang ?? cand.lang },
       content: result.content,
       meta: {
@@ -244,7 +258,7 @@ async function processSyncGroup({
  * No-sync path (sync disabled, single candidate, or ffsubsync unavailable):
  * serve the best candidate directly without running ffsubsync.
  */
-async function processBest({ uncached, filename, videoKey, cache, registry, subtitles }) {
+async function processBest({ uncached, filename, videoKey, cache, registry, subtitles, requestId }) {
   const best = pickBest(uncached, filename);
   if (!best) return;
 
@@ -255,15 +269,19 @@ async function processBest({ uncached, filename, videoKey, cache, registry, subt
       normalizedBest = await downloadCandidate(best, registry);
       content = normalizedBest.content;
     } catch (err) {
-      console.error(
-        `Download failed for ${best.provider ?? '?'}/${best.id}: ${err?.message ?? err}`,
-      );
+      logEvent('subtitle_download_failed', {
+        requestId,
+        provider: best.provider ?? null,
+        subtitleId: best.id ?? null,
+        lang: best.lang ?? null,
+        error: err?.message ?? String(err),
+      }, 'error');
       return;
     }
   }
 
   await cacheAndEmit({
-    cache, subtitles, videoKey,
+    cache, subtitles, videoKey, requestId,
     candidate: normalizedBest,
     content,
     meta: {
@@ -324,7 +342,7 @@ export function createSubtitlesHandler(deps = {}) {
     const registry = createRegistry ? createRegistry(config) : fixedRegistry;
     const extra = args.extra ?? {};
     const parsed = parseVideoId(args.type, args.id);
-    const finish = (result, reason) => {
+    const finish = (result, reason, extra = {}, level = 'log') => {
       logEvent('subtitle_request_complete', {
         requestId,
         type: parsed.type,
@@ -332,7 +350,8 @@ export function createSubtitlesHandler(deps = {}) {
         subtitleCount: result.subtitles.length,
         reason,
         durationMs: Date.now() - started,
-      });
+        ...extra,
+      }, level);
       return result;
     };
 
@@ -427,17 +446,25 @@ export function createSubtitlesHandler(deps = {}) {
         cache,
         registry,
         subtitles,
+        requestId,
       });
     } else {
       // Without a cross-language reference, retain one best result per
       // language rather than dropping a single available candidate.
       for (const group of groups) {
         await processBest({
-          uncached: group, filename, videoKey, cache, registry, subtitles,
+          uncached: group, filename, videoKey, cache, registry, subtitles, requestId,
         });
       }
     }
 
-    return finish({ subtitles, cacheMaxAge: CACHE_MAX_AGE }, 'complete');
+    // Candidates existed but nothing was emitted (e.g. every download or cache
+    // write failed). Surface this distinctly so an empty response is traceable
+    // to the per-subtitle subtitle_download_failed / subtitle_cache_failed
+    // events logged above for this requestId.
+    const emitted = subtitles.length > 0;
+    return finish({ subtitles, cacheMaxAge: CACHE_MAX_AGE }, emitted ? 'complete' : 'no-subtitles-emitted', {
+      candidateCount: candidates.length,
+    }, emitted ? 'log' : 'warn');
   };
 }

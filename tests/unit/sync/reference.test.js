@@ -171,8 +171,8 @@ describe('selectReference', () => {
       [weakMatch, highScore],
       'Movie.2024.1080p.BluRay.mkv',
     );
-    // weak match has only 1 token overlap → falls through to score-based
-    expect(result.id).toBe('highscore');
+    // weak match has only 1 token overlap → no qualifying reference
+    expect(result).toBeNull();
   });
 
   it('tie-breaks release-name matches by composite score', () => {
@@ -199,20 +199,21 @@ describe('selectReference', () => {
     expect(result.id).toBe('b');
   });
 
-  // spec: subtitle-sync > Reference subtitle selection > Scenario: Score-based fallback
-  it('falls back to highest composite score when no hash or release match', () => {
+  // spec: subtitle-sync > Reference subtitle selection > Scenario: No qualifying reference
+  it('returns null when no hash or release match exists', () => {
     const lowScore = sub({ id: 'low', downloads: 10, rating: 2 });
     const highScore = sub({ id: 'high', downloads: 500, rating: 8 });
 
+    // 'video.mkv' shares no release tokens with the candidates.
     const result = selectReference([lowScore, highScore], 'video.mkv');
-    expect(result.id).toBe('high');
+    expect(result).toBeNull();
   });
 
-  it('works without videoFilename (skips release-name step)', () => {
+  it('returns null without videoFilename when nothing hash-matches', () => {
     const lowScore = sub({ id: 'low', downloads: 10, rating: 2 });
     const highScore = sub({ id: 'high', downloads: 500, rating: 8 });
 
     const result = selectReference([lowScore, highScore]);
-    expect(result.id).toBe('high');
+    expect(result).toBeNull();
   });
 });

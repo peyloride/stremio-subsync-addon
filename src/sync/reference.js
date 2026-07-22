@@ -1,9 +1,9 @@
 /**
  * Reference subtitle selection using a priority cascade:
  *   1. Best hash-matched subtitle (hashMatch === true) by composite score
- *   2. Best release-name match against the video filename
- *   3. Highest composite score overall
- *   4. null if only one candidate or empty list
+ *   2. Best release-name match against the video filename (>= 2 token overlap)
+ *   3. null otherwise — no blind popularity-based sync; also null for a single
+ *      candidate or empty list
  */
 
 /**
@@ -63,7 +63,14 @@ export function releaseMatchScore(videoFilename, candidate) {
 }
 
 /**
- * Select the best reference subtitle from a list of candidates.
+ * Select a trustworthy reference subtitle from a list of candidates.
+ *
+ * A reference is only useful for syncing when it is timed to the same video, so
+ * selection requires a real signal: an exact video-hash match or a release-name
+ * match against the video filename. When neither exists there is no evidence the
+ * candidates line up with the video, so null is returned and callers serve the
+ * subtitles unsynced rather than syncing against a blind popularity pick (which
+ * can corrupt already-correct timing).
  *
  * @param {object[]} candidates - Array of ProviderSubtitle objects
  * @param {string} [videoFilename] - The video filename for release-name matching
@@ -104,8 +111,6 @@ export function selectReference(candidates, videoFilename) {
     }
   }
 
-  // 3. Highest composite score overall
-  return candidates.reduce((best, c) =>
-    compositeScore(c) > compositeScore(best) ? c : best,
-  );
+  // No hash or release-name match: syncing would be a blind guess.
+  return null;
 }

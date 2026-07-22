@@ -321,6 +321,82 @@ describe('createSubtitlesHandler', () => {
     }
   });
 
+  it('serves unsynced per language instead of syncing against an unmatched reference', async () => {
+    // Regression: with no hash or release-name match, syncing would be a blind
+    // guess that can corrupt correct timing. Serve each language's best
+    // candidate unsynced instead of picking a popularity-based reference.
+    const candidates = [
+      sub({ id: 'sub-en', lang: 'en', downloads: 50, releaseName: 'Unrelated.Release.One' }),
+      sub({ id: 'sub-tr', lang: 'tr', downloads: 100, releaseName: 'Unrelated.Release.Two' }),
+    ];
+    const registry = makeRegistry(candidates);
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    const res = await handler({
+      ...MOVIE_ARGS,
+      config: { languages: 'en,tr', syncEnabled: true },
+    });
+
+    // No qualifying reference → no sync attempted.
+    expect(syncSubtitles).not.toHaveBeenCalled();
+    // Each language is served unsynced.
+    expect(res.subtitles).toHaveLength(2);
+    expect(res.subtitles.map((s) => s.lang).sort()).toEqual(['en', 'tr']);
+    for (const call of cache.put.mock.calls) {
+      expect(call[3]).toMatchObject({ synced: false, referenceId: null });
+    }
+  });
+
+  it('logs why nothing was returned when every download fails', async () => {
+    // Regression: an empty response must be explainable in the server logs.
+    // Each failed download is logged with the requestId, and the completion
+    // event is flagged as no-subtitles-emitted (with the candidate count).
+    const candidates = [
+      sub({ id: 'sub-en', lang: 'en' }),
+      sub({ id: 'sub-tr', lang: 'tr' }),
+    ];
+    const parseEvents = (spy) => spy.mock.calls
+      .map((c) => { try { return JSON.parse(c[0]); } catch { return null; } })
+      .filter(Boolean);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const registry = makeRegistry(candidates, {
+      download: async () => { throw new Error('upstream down'); },
+    });
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    try {
+      const res = await handler({
+        ...MOVIE_ARGS,
+        config: { languages: 'en,tr', syncEnabled: true },
+      });
+
+      // Nothing could be downloaded → empty response.
+      expect(res.subtitles).toEqual([]);
+
+      // Each failed download is logged with a shared requestId for correlation.
+      const failures = parseEvents(error).filter((e) => e.event === 'subtitle_download_failed');
+      expect(failures).toHaveLength(2);
+      expect(failures[0]).toMatchObject({ error: 'upstream down' });
+      expect(failures[0].requestId).toBeTruthy();
+      expect(failures[0].requestId).toBe(failures[1].requestId);
+
+      // The completion event explains why the response is empty.
+      const complete = parseEvents(warn).find((e) => e.event === 'subtitle_request_complete');
+      expect(complete).toMatchObject({
+        reason: 'no-subtitles-emitted',
+        subtitleCount: 0,
+        candidateCount: 2,
+      });
+      expect(complete.requestId).toBe(failures[0].requestId);
+    } finally {
+      error.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
   it('handles a series request, parsing season and episode into the query', async () => {
     const registry = makeRegistry([sub({ id: 'sub-1' })]);
     const cache = makeCache();
