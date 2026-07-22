@@ -17,6 +17,7 @@ import { createSubtitlesHandler } from './handlers/subtitles.js';
 import { ProviderRegistry } from './providers/index.js';
 import { CacheStore } from './cache/store.js';
 import { checkFfsubsyncAvailable } from './sync/ffsubsync.js';
+import { createRequestId, logEvent, redactUrl } from './utils/logging.js';
 
 // 24h client-side caching for Stremio, per the addon-server spec.
 const DEFAULT_CACHE_MAX_AGE = 86400;
@@ -59,6 +60,30 @@ export function createApp(config = parseConfig(), deps = {}) {
   });
 
   const app = express();
+
+  // Access logging is intentionally placed before the SDK router so every
+  // request is visible, including unsupported paths and requests that never
+  // reach the subtitle handler. Config JSON in the Stremio path is redacted.
+  app.use((req, res, next) => {
+    const requestId = createRequestId();
+    const started = Date.now();
+    const url = redactUrl(req.originalUrl || req.url);
+    logEvent('http_request_start', {
+      requestId,
+      method: req.method,
+      url,
+    });
+    res.on('finish', () => {
+      logEvent('http_request_complete', {
+        requestId,
+        method: req.method,
+        url,
+        status: res.statusCode,
+        durationMs: Date.now() - started,
+      });
+    });
+    next();
+  });
 
   // Cache-Control: no-store for manifest (Stremio needs fresh manifests),
   // long cache for everything else.

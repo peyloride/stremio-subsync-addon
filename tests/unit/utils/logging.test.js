@@ -26,6 +26,14 @@ describe('logging utilities', () => {
     expect(safe).not.toContain('super-secret');
   });
 
+  it('redacts encoded Stremio config from request paths', () => {
+    const safe = redactUrl(
+      '/%7B%22subdlApiKey%22%3A%22super-secret%22%7D/subtitles/movie/tt1.json',
+    );
+    expect(safe).toBe('/[config]/subtitles/movie/tt1.json');
+    expect(safe).not.toContain('super-secret');
+  });
+
   it('summarizes configured keys without exposing their values', () => {
     const summary = summarizeConfig({
       languages: ['tr'],

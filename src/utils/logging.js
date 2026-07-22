@@ -11,8 +11,9 @@ export function createRequestId() {
 /** Redact credentials from URLs before they are written to logs. */
 export function redactUrl(value) {
   const input = String(value ?? '');
+  const absolute = /^[a-z][a-z\d+.-]*:\/\//i.test(input);
   try {
-    const url = new URL(input);
+    const url = new URL(input, 'http://local.invalid');
     if (url.username || url.password) {
       url.username = '[redacted]';
       url.password = '[redacted]';
@@ -20,7 +21,22 @@ export function redactUrl(value) {
     for (const key of [...url.searchParams.keys()]) {
       if (SECRET_PARAM.test(key)) url.searchParams.set(key, '[redacted]');
     }
-    return url.toString();
+
+    // Stremio puts addon config in the first URL path segment as encoded JSON.
+    // Replace that entire segment so access logs cannot expose API keys.
+    const segments = url.pathname.split('/');
+    if (segments[1]) {
+      try {
+        const decoded = decodeURIComponent(segments[1]);
+        if (decoded.startsWith('{') && decoded.endsWith('}') && JSON.parse(decoded)) {
+          segments[1] = '[config]';
+        }
+      } catch {
+        // Not a JSON config segment; retain the normal path.
+      }
+    }
+    const safePath = `${segments.join('/')}${url.search}`;
+    return absolute ? `${url.origin}${safePath}` : safePath;
   } catch {
     return input.replace(/(api[_-]?key|token|secret|authorization)=?[^&\s]*/gi, '$1=[redacted]');
   }
