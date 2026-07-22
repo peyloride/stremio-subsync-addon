@@ -27,7 +27,7 @@ describe('manifest', () => {
       ].sort(),
     );
     expect(fields.languages.type).toBe('select');
-    expect(fields.languages.default).toEqual(['en']);
+    expect(fields.languages.default).toEqual('en');
     expect(fields.syncEnabled.type).toBe('boolean');
     expect(fields.maxOffsetSeconds.type).toBe('number');
     expect(fields.cacheTtlDays.type).toBe('number');
