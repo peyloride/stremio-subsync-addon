@@ -82,7 +82,8 @@ describe('SubsourceProvider.search', () => {
     // First call: movie search
     const [movieUrl, movieOpts] = fetchMock.mock.calls[0];
     expect(String(movieUrl)).toContain(`${BASE_URL}/movies/search`);
-    expect(String(movieUrl)).toContain('query=tt1234567');
+    expect(String(movieUrl)).toContain('searchType=imdb');
+    expect(String(movieUrl)).toContain('imdb=tt1234567');
     expect(movieOpts.headers['X-API-Key']).toBe('test-key');
 
     // Second call: subtitle search
@@ -104,6 +105,22 @@ describe('SubsourceProvider.search', () => {
       rating: 8,
       hearingImpaired: true,
     });
+  });
+
+  it('accepts the API data response field', async () => {
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).startsWith(`${BASE_URL}/movies/search`)) {
+        return jsonResponse({ data: [{ linkName: 'the-movie' }] });
+      }
+      return jsonResponse({ data: [{ id: 1, language: 'tr' }] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const provider = new SubsourceProvider({ subsourceApiKey: 'key' });
+    const results = await provider.search({ type: 'movie', imdbId: 'tt1', languages: ['tr'] });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].id).toBe('1');
   });
 
   it('includes season param for series queries', async () => {

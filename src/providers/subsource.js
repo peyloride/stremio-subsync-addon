@@ -67,7 +67,8 @@ export class SubsourceProvider {
   async _resolveLinkName(query) {
     try {
       const params = new URLSearchParams();
-      params.set('query', query.imdbId);
+      params.set('searchType', 'imdb');
+      params.set('imdb', query.imdbId);
       const url = `${BASE_URL}/movies/search?${params}`;
       const res = await fetchLogged(this.name, url, {
         headers: {
@@ -86,7 +87,7 @@ export class SubsourceProvider {
         return null;
       }
       const json = await res.json();
-      const items = json?.items || json?.results || json?.movies || [];
+      const items = json?.data || json?.items || json?.results || json?.movies || [];
       logEvent('provider_result_count', {
         requestId: query.requestId ?? null,
         provider: this.name,
@@ -101,7 +102,7 @@ export class SubsourceProvider {
   }
 
   _normalize(json) {
-    const subs = json?.items || json?.subtitles || json?.results || [];
+    const subs = json?.data || json?.items || json?.subtitles || json?.results || [];
     if (!Array.isArray(subs)) return [];
 
     return subs.map((s) => {
