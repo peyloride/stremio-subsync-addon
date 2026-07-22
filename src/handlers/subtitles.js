@@ -242,15 +242,24 @@ async function processBest({ uncached, filename, videoKey, cache, registry, subt
  * Create the subtitles handler callback.
  *
  * @param {object} deps
- * @param {import('../providers/index.js').ProviderRegistry} deps.registry
+ * @param {import('../providers/index.js').ProviderRegistry} [deps.registry]
+ *   Fixed registry (mainly for tests). When omitted, `deps.createRegistry`
+ *   builds one per request from the request config so that per-install API
+ *   keys (passed by Stremio in the URL config) are honoured.
+ * @param {(config: object) => import('../providers/index.js').ProviderRegistry} [deps.createRegistry]
+ *   Factory used to build a registry from the per-request config.
  * @param {import('../cache/store.js').CacheStore} deps.cache
  * @param {() => Promise<boolean>} [deps.checkFfsubsync] ffsubsync availability probe.
  * @returns {(args: object) => Promise<{ subtitles: object[], cacheMaxAge: number }>}
  */
 export function createSubtitlesHandler(deps = {}) {
-  const { registry, cache, checkFfsubsync = checkFfsubsyncAvailable } = deps;
+  const { cache, checkFfsubsync = checkFfsubsyncAvailable } = deps;
+  const fixedRegistry = deps.registry ?? null;
+  const createRegistry = typeof deps.createRegistry === 'function' ? deps.createRegistry : null;
 
-  if (!registry) throw new TypeError('createSubtitlesHandler: "registry" is required');
+  if (!fixedRegistry && !createRegistry) {
+    throw new TypeError('createSubtitlesHandler: "registry" or "createRegistry" is required');
+  }
   if (!cache) throw new TypeError('createSubtitlesHandler: "cache" is required');
 
   // Memoize the ffsubsync probe so we only spawn `which` once per process.
@@ -268,6 +277,9 @@ export function createSubtitlesHandler(deps = {}) {
 
   return async function subtitlesHandler(args = {}) {
     const config = parseConfig(args.config ?? {});
+    // Build the registry from the per-request config so API keys supplied via
+    // the Stremio install URL are picked up. Tests may inject a fixed registry.
+    const registry = createRegistry ? createRegistry(config) : fixedRegistry;
     const extra = args.extra ?? {};
     const parsed = parseVideoId(args.type, args.id);
 

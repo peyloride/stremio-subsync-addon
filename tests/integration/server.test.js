@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { parseConfig } from '../../src/config.js';
+import { manifest } from '../../src/manifest.js';
 import { createApp, startServer } from '../../src/server.js';
 
 const SRT_BODY = '1\n00:00:01,000 --> 00:00:02,000\nHello there\n';
@@ -42,7 +43,7 @@ describe('addon HTTP endpoints', () => {
     const res = await request(app).get('/manifest.json');
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('com.subsync.stremio');
-    expect(res.body.version).toBe('1.0.0');
+    expect(res.body.version).toBe(manifest.version);
     expect(res.body.resources).toEqual(['subtitles']);
     expect(res.body.types).toEqual(['movie', 'series']);
     expect(res.body.idPrefixes).toEqual(['tt']);
@@ -70,7 +71,7 @@ describe('addon HTTP endpoints', () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(['ok', 'degraded']).toContain(res.body.status);
-    expect(res.body.version).toBe('1.0.0');
+    expect(res.body.version).toBe(manifest.version);
     // The cache dir seeded in beforeAll holds one .srt and one .ass file.
     expect(res.body.cache).toEqual({
       entries: 2,

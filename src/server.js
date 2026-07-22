@@ -46,10 +46,17 @@ export function createApp(config = parseConfig(), deps = {}) {
   // file-serving endpoint and the /health stats. Dependencies are injectable
   // for testing.
   const cache = deps.cache ?? new CacheStore(config.cacheDir, config.cacheTtlDays);
-  const registry = deps.registry ?? new ProviderRegistry(config);
   const checkFfsubsync = deps.checkFfsubsync ?? checkFfsubsyncAvailable;
 
-  const subtitlesHandler = createSubtitlesHandler({ registry, cache, checkFfsubsync });
+  // A fixed registry can be injected for tests. In production we build the
+  // registry per request from the request config so that API keys supplied
+  // through the Stremio install URL (config encoded in the path) are honoured.
+  const subtitlesHandler = createSubtitlesHandler({
+    registry: deps.registry,
+    createRegistry: deps.registry ? undefined : (cfg) => new ProviderRegistry(cfg),
+    cache,
+    checkFfsubsync,
+  });
 
   const app = express();
 

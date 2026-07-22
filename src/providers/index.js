@@ -152,8 +152,11 @@ export class ProviderRegistry {
       if (result.status === 'fulfilled') {
         if (Array.isArray(result.value)) merged.push(...result.value);
       } else {
-        const message = result.reason?.message ?? String(result.reason);
-        console.error(`Provider "${provider.name}" search failed: ${message}`);
+        const reason = result.reason;
+        const message = reason?.message ?? String(reason);
+        const cause = reason?.cause;
+        const causeDetail = cause ? ` (cause: ${cause.message ?? cause}${cause.code ? ` ${cause.code}` : ''})` : '';
+        console.error(`Provider "${provider.name}" search failed: ${message}${causeDetail}`);
       }
     });
 

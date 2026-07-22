@@ -133,6 +133,26 @@ describe('createSubtitlesHandler', () => {
     expect(() => createSubtitlesHandler({ registry: makeRegistry([]) })).toThrow(/cache/);
   });
 
+  it('builds the registry from the per-request config (API keys honoured)', async () => {
+    // Regression: API keys arrive in the Stremio install-URL config, not the
+    // startup config. The registry must be built per request from args.config.
+    const registry = makeRegistry([sub({ id: 'sub-1' })]);
+    const createRegistry = vi.fn().mockReturnValue(registry);
+    const handler = createSubtitlesHandler({
+      createRegistry,
+      cache: makeCache(),
+      checkFfsubsync: async () => true,
+    });
+
+    await handler({ ...MOVIE_ARGS, config: { subdlApiKey: 'secret-key', languages: 'fr' } });
+
+    expect(createRegistry).toHaveBeenCalledTimes(1);
+    const cfg = createRegistry.mock.calls[0][0];
+    expect(cfg.subdlApiKey).toBe('secret-key');
+    expect(cfg.languages).toEqual(['fr']);
+    expect(registry.searchAll).toHaveBeenCalledTimes(1);
+  });
+
   it('handles a movie request through the sync pipeline', async () => {
     const candidates = [
       sub({ id: 'sub-1', downloads: 10 }),

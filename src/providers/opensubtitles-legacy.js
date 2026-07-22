@@ -17,6 +17,37 @@ import { normalizeLang } from '../utils/language.js';
 const BASE_URL = 'https://rest.opensubtitles.org';
 const REQUEST_TIMEOUT_MS = 10000;
 const USER_AGENT = 'stremio-subsync-addon v1.0';
+const MAX_RETRIES = 2;
+
+/** Human-readable detail for a fetch error, including the undici cause. */
+function fetchDetail(err, url) {
+  const cause = err?.cause;
+  const code = cause?.code ?? err?.code ?? '';
+  const msg = cause?.message ?? err?.message ?? String(err);
+  return `${msg}${code ? ` (${code})` : ''} [${url}]`;
+}
+
+/** True when a fetch error looks transient (DNS/connection) and worth retrying. */
+function isTransient(err) {
+  const code = err?.cause?.code ?? err?.code ?? '';
+  return ['ENOTFOUND', 'EAI_AGAIN', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(code)
+    || err?.message === 'fetch failed';
+}
+
+/** fetch with a couple of retries for transient network errors. */
+async function fetchWithRetry(url, options) {
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      return await globalThis.fetch(url, options);
+    } catch (err) {
+      lastErr = err;
+      if (!isTransient(err) || attempt === MAX_RETRIES) break;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw new Error(`OpenSubtitles legacy request failed: ${fetchDetail(lastErr, url)}`);
+}
 
 /** Map ISO 639-1 to OpenSubtitles legacy language IDs. */
 const LANG_MAP = {
@@ -41,33 +72,45 @@ export class OpenSubtitlesLegacyProvider {
       .map((l) => LANG_MAP[l] || l)
       .join(',');
 
-    let path;
+    // Try the most precise search first (movie hash), then fall back to IMDB.
+    // The hash endpoint 400s on unknown hashes, so a failed/empty hash search
+    // should not prevent an IMDB search from running.
     if (query.videoHash && query.videoSize) {
-      path = `/search/moviehash-${query.videoHash}/moviebytesize-${query.videoSize}/sublanguageid-${langs}`;
-    } else if (query.imdbId) {
-      const imdbNum = query.imdbId.replace(/^tt/, '');
-      path = `/search/imdbid-${imdbNum}/sublanguageid-${langs}`;
-      if (query.type === 'series' && query.season != null && query.episode != null) {
-        path += `/season-${query.season}/episode-${query.episode}`;
-      }
-    } else {
-      return [];
+      const hashPath = `/search/moviehash-${query.videoHash}/moviebytesize-${query.videoSize}/sublanguageid-${langs}`;
+      const byHash = await this._fetchSearch(hashPath, true);
+      if (byHash.length > 0) return byHash;
     }
 
-    const res = await globalThis.fetch(`${BASE_URL}${path}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'application/json',
-      },
+    if (query.imdbId) {
+      const imdbNum = query.imdbId.replace(/^tt/, '');
+      let imdbPath = `/search/imdbid-${imdbNum}/sublanguageid-${langs}`;
+      if (query.type === 'series' && query.season != null && query.episode != null) {
+        imdbPath += `/season-${query.season}/episode-${query.episode}`;
+      }
+      return this._fetchSearch(imdbPath, false);
+    }
+
+    return [];
+  }
+
+  /**
+   * Run one search request. Returns [] on HTTP error so callers can fall back
+   * to the next strategy; throws only on hard network failure.
+   */
+  async _fetchSearch(path, isHashSearch) {
+    const url = `${BASE_URL}${path}`;
+    const res = await fetchWithRetry(url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
-      throw new Error(`OpenSubtitles legacy API error: HTTP ${res.status}`);
+      // Non-fatal: let the caller try the next search strategy.
+      console.error(`OpenSubtitles legacy search HTTP ${res.status} [${url}]`);
+      return [];
     }
-
     const json = await res.json();
     const results = Array.isArray(json) ? json : [];
-    return this._normalize(results, Boolean(query.videoHash));
+    return this._normalize(results, isHashSearch);
   }
 
   _normalize(results, isHashSearch) {

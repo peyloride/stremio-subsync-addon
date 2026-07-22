@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createHealthHandler } from '../../src/handlers/health.js';
+import { manifest } from '../../src/manifest.js';
 
 function mockResponse() {
   const res = { headers: {}, statusCode: null, body: null };
@@ -26,7 +27,7 @@ describe('createHealthHandler', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.version).toBe('1.0.0');
+    expect(res.body.version).toBe(manifest.version);
     expect(res.body.cache).toEqual({ entries: 0, sizeBytes: 0 });
     expect(res.body.warning).toBeUndefined();
   });

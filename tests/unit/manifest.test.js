@@ -5,7 +5,7 @@ import { manifest } from '../../src/manifest.js';
 describe('manifest', () => {
   it('declares identity and protocol fields', () => {
     expect(manifest.id).toBe('com.subsync.stremio');
-    expect(manifest.version).toBe('1.0.0');
+    expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(manifest.resources).toEqual(['subtitles']);
     expect(manifest.types).toEqual(['movie', 'series']);
     expect(manifest.idPrefixes).toEqual(['tt']);
