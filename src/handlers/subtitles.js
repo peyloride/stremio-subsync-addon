@@ -18,6 +18,7 @@ import { parseConfig } from '../config.js';
 import { selectReference, compositeScore } from '../sync/reference.js';
 import { syncSubtitles } from '../sync/engine.js';
 import { checkFfsubsyncAvailable } from '../sync/ffsubsync.js';
+import { extractSubtitle } from '../utils/archive.js';
 import {
   createRequestId,
   logEvent,
@@ -127,13 +128,25 @@ function pickBest(candidates, filename) {
   );
 }
 
+/** Download and normalize one provider result to subtitle-file content. */
+async function downloadCandidate(candidate, registry) {
+  const rawContent = await registry.download(candidate);
+  const extracted = extractSubtitle(rawContent, candidate.filename);
+  return {
+    ...candidate,
+    content: extracted.content,
+    // Keep the actual inner filename so release matching and extension
+    // selection reflect the extracted subtitle rather than the ZIP wrapper.
+    filename: extracted.filename || candidate.filename,
+  };
+}
+
 /** Download all candidates, dropping (and logging) any that fail. */
 async function downloadAll(candidates, registry) {
   const settled = await Promise.all(
     candidates.map(async (cand) => {
       try {
-        const content = await registry.download(cand);
-        return { ...cand, content };
+        return await downloadCandidate(cand, registry);
       } catch (err) {
         console.error(
           `Download failed for ${cand.provider ?? '?'}/${cand.id}: ${err?.message ?? err}`,
@@ -216,9 +229,11 @@ async function processBest({ uncached, filename, videoKey, cache, registry, subt
   if (!best) return;
 
   let content = best.content;
+  let normalizedBest = best;
   if (content == null) {
     try {
-      content = await registry.download(best);
+      normalizedBest = await downloadCandidate(best, registry);
+      content = normalizedBest.content;
     } catch (err) {
       console.error(
         `Download failed for ${best.provider ?? '?'}/${best.id}: ${err?.message ?? err}`,
@@ -229,7 +244,7 @@ async function processBest({ uncached, filename, videoKey, cache, registry, subt
 
   await cacheAndEmit({
     cache, subtitles, videoKey,
-    candidate: best,
+    candidate: normalizedBest,
     content,
     meta: {
       offsetSeconds: null,

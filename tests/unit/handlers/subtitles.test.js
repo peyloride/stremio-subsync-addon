@@ -1,3 +1,4 @@
+import AdmZip from 'adm-zip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the sync engine so no ffsubsync/temp-file work happens in unit tests.
@@ -199,6 +200,32 @@ describe('createSubtitlesHandler', () => {
     const sub1Put = putCalls.find((c) => c[1] === 'sub-1');
     expect(sub1Put[4]).toBe('.srt');
     expect(sub1Put[3]).toMatchObject({ synced: true, referenceId: 'sub-2' });
+  });
+
+  it('extracts archived provider downloads before syncing and caching', async () => {
+    const zip = new AdmZip();
+    zip.addFile('House.of.the.Dragon.S03E03.tr.srt', Buffer.from(
+      '1\n00:00:01,000 --> 00:00:02,000\nMerhaba\n',
+    ));
+    const registry = makeRegistry([
+      sub({
+        id: 'sub-zip',
+        provider: 'subdl',
+        lang: 'tr',
+        filename: 'House.of.the.Dragon.S03E03.zip',
+      }),
+    ], { download: async () => zip.toBuffer() });
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    await handler({
+      ...MOVIE_ARGS,
+      config: { languages: 'tr', syncEnabled: true },
+    });
+
+    const cachedContent = cache.put.mock.calls[0][2];
+    expect(cachedContent.toString()).toContain('Merhaba');
+    expect(cachedContent.subarray(0, 2).toString()).not.toBe('PK');
   });
 
   it('handles a series request, parsing season and episode into the query', async () => {
