@@ -46,7 +46,8 @@ describe('addon HTTP endpoints', () => {
     expect(res.body.resources).toEqual(['subtitles']);
     expect(res.body.types).toEqual(['movie', 'series']);
     expect(res.body.idPrefixes).toEqual(['tt']);
-    expect(res.body.behaviorHints.configurable.length).toBeGreaterThan(0);
+    expect(res.body.behaviorHints.configurable).toBe(true);
+    expect(res.body.config.length).toBeGreaterThan(0);
   });
 
   it('returns empty subtitles when no providers are configured, with a 24h cache header', async () => {
