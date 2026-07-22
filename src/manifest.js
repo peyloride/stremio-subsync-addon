@@ -16,24 +16,25 @@ export const manifest = {
   resources: ['subtitles'],
   types: ['movie', 'series'],
   idPrefixes: ['tt'],
+  config: [
+    {
+      key: 'languages',
+      type: 'select',
+      title: 'Preferred languages',
+      options: [
+        'en', 'ar', 'zh', 'cs', 'da', 'nl', 'fi', 'fr', 'de', 'el',
+        'he', 'hi', 'hu', 'id', 'it', 'ja', 'ko', 'no', 'pl', 'pt',
+        'ro', 'ru', 'es', 'sv', 'th', 'tr', 'uk', 'vi',
+      ],
+      default: 'en',
+    },
+    { key: 'opensubtitlesApiKey', type: 'text', title: 'OpenSubtitles API key', required: false },
+    { key: 'subdlApiKey', type: 'text', title: 'SubDL API key', required: false },
+    { key: 'syncEnabled', type: 'checkbox', title: 'Enable automatic sync', default: true },
+    { key: 'maxOffsetSeconds', type: 'number', title: 'Max sync offset (seconds)', default: 120 },
+    { key: 'cacheTtlDays', type: 'number', title: 'Cache TTL (days)', default: 30 },
+  ],
   behaviorHints: {
-    configurable: [
-      {
-        key: 'languages',
-        type: 'select',
-        title: 'Preferred languages',
-        options: [
-          'en', 'ar', 'zh', 'cs', 'da', 'nl', 'fi', 'fr', 'de', 'el',
-          'he', 'hi', 'hu', 'id', 'it', 'ja', 'ko', 'no', 'pl', 'pt',
-          'ro', 'ru', 'es', 'sv', 'th', 'tr', 'uk', 'vi',
-        ],
-        default: 'en',
-      },
-      { key: 'opensubtitlesApiKey', type: 'text', title: 'OpenSubtitles API key', required: false },
-      { key: 'subdlApiKey', type: 'text', title: 'SubDL API key', required: false },
-      { key: 'syncEnabled', type: 'boolean', title: 'Enable automatic sync', default: true },
-      { key: 'maxOffsetSeconds', type: 'number', title: 'Max sync offset (seconds)', default: 120 },
-      { key: 'cacheTtlDays', type: 'number', title: 'Cache TTL (days)', default: 30 },
-    ],
+    configurable: true,
   },
 };

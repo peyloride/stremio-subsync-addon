@@ -13,8 +13,9 @@ describe('manifest', () => {
   });
 
   it('exposes configurable settings for the Stremio config UI', () => {
+    expect(manifest.behaviorHints.configurable).toBe(true);
     const fields = Object.fromEntries(
-      manifest.behaviorHints.configurable.map((field) => [field.key, field]),
+      manifest.config.map((field) => [field.key, field]),
     );
     expect(Object.keys(fields).sort()).toEqual(
       [
@@ -28,7 +29,7 @@ describe('manifest', () => {
     );
     expect(fields.languages.type).toBe('select');
     expect(fields.languages.default).toEqual('en');
-    expect(fields.syncEnabled.type).toBe('boolean');
+    expect(fields.syncEnabled.type).toBe('checkbox');
     expect(fields.maxOffsetSeconds.type).toBe('number');
     expect(fields.cacheTtlDays.type).toBe('number');
   });
