@@ -52,10 +52,15 @@ export function createApp(config = parseConfig(), deps = {}) {
 
   const app = express();
 
-  // Same default Cache-Control serveHTTP applies to addon responses.
+  // Cache-Control: no-store for manifest (Stremio needs fresh manifests),
+  // long cache for everything else.
   app.use((req, res, next) => {
     if (!res.getHeader('Cache-Control')) {
-      res.setHeader('Cache-Control', `max-age=${DEFAULT_CACHE_MAX_AGE}, public`);
+      if (req.path.endsWith('/manifest.json')) {
+        res.setHeader('Cache-Control', 'no-store');
+      } else {
+        res.setHeader('Cache-Control', `max-age=${DEFAULT_CACHE_MAX_AGE}, public`);
+      }
     }
     next();
   });
