@@ -13,8 +13,11 @@ import { validateProvider } from './base.js';
 import { OpenSubtitlesProvider } from './opensubtitles.js';
 import { SubDLProvider } from './subdl.js';
 import { SubsourceProvider } from './subsource.js';
+import { OpenSubtitlesLegacyProvider } from './opensubtitles-legacy.js';
+
 export {
   OpenSubtitlesProvider,
+  OpenSubtitlesLegacyProvider,
   SubDLProvider,
   SubsourceProvider,
 };
@@ -22,8 +25,9 @@ export {
 const DEFAULT_TIMEOUT_MS = 10000;
 
 /**
- * Build the default provider list from config. All providers require API
- * keys and are only included when their key is configured.
+ * Build the default provider list from config. Keyed providers are only
+ * included when their key is configured. The legacy OpenSubtitles REST
+ * provider is always included (no key needed).
  *
  * @param {object} config
  * @returns {import('./base.js').SubtitleProvider[]}
@@ -33,6 +37,8 @@ export function createDefaultProviders(config = {}) {
   if (config.opensubtitlesApiKey) providers.push(new OpenSubtitlesProvider(config));
   if (config.subdlApiKey) providers.push(new SubDLProvider(config));
   if (config.subsourceApiKey) providers.push(new SubsourceProvider(config));
+  // Keyless fallback: legacy OpenSubtitles REST (no key needed)
+  providers.push(new OpenSubtitlesLegacyProvider(config));
   return providers;
 }
 
