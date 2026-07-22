@@ -68,7 +68,8 @@ describe('SubDLProvider.search', () => {
     const calledUrl = fetchMock.mock.calls[0][0];
     expect(calledUrl).toContain('api_key=subdl-key');
     expect(calledUrl).toContain('imdb_id=tt1234567');
-    expect(calledUrl).toContain('languages=en%2Cfr');
+    expect(calledUrl).toContain('languages=EN%2CFR');
+    expect(calledUrl).toContain('type=movie');
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({

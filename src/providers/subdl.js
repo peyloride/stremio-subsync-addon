@@ -42,8 +42,9 @@ export class SubDLProvider {
     params.set('api_key', this.apiKey);
     // SubDL expects the IMDB id with the `tt` prefix.
     params.set('imdb_id', String(query.imdbId));
-    const langs = (query.languages || []).join(',');
+    const langs = (query.languages || []).map((lang) => String(lang).toUpperCase()).join(',');
     if (langs) params.set('languages', langs);
+    params.set('type', query.type === 'series' ? 'tv' : 'movie');
 
     if (query.type === 'series') {
       if (query.season != null) params.set('season_number', String(query.season));
@@ -68,6 +69,15 @@ export class SubDLProvider {
       resultCount: results.length,
       apiStatus: json?.status ?? null,
       apiError: json?.error ?? null,
+      mediaResultCount: Array.isArray(json?.results) ? json.results.length : 0,
+      matchedMedia: Array.isArray(json?.results)
+        ? json.results.slice(0, 3).map((media) => ({
+          name: media.name ?? null,
+          imdbId: media.imdb_id ?? null,
+          type: media.type ?? null,
+          sdId: media.sd_id ?? null,
+        }))
+        : [],
     });
     return results;
   }
