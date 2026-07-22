@@ -6,9 +6,9 @@ describe('manifest', () => {
   it('declares identity and protocol fields', () => {
     expect(manifest.id).toBe('com.subsync.stremio');
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(manifest.resources).toEqual(['subtitles']);
+    expect(manifest.resources).toEqual([{ name: 'subtitles', types: ['movie', 'series'] }]);
     expect(manifest.types).toEqual(['movie', 'series']);
-    expect(manifest.idPrefixes).toEqual(['tt']);
+    expect(manifest.idPrefixes).toBeUndefined();
     expect(manifest.catalogs).toEqual([]);
   });
 

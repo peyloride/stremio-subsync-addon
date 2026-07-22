@@ -44,9 +44,9 @@ describe('addon HTTP endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('com.subsync.stremio');
     expect(res.body.version).toBe(manifest.version);
-    expect(res.body.resources).toEqual(['subtitles']);
+    expect(res.body.resources).toEqual([{ name: 'subtitles', types: ['movie', 'series'] }]);
     expect(res.body.types).toEqual(['movie', 'series']);
-    expect(res.body.idPrefixes).toEqual(['tt']);
+    expect(res.body.idPrefixes).toBeUndefined();
     expect(res.body.behaviorHints.configurable).toBe(true);
     expect(res.body.config.length).toBeGreaterThan(0);
   });

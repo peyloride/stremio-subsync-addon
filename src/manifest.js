@@ -6,16 +6,18 @@
  */
 export const manifest = {
   id: 'com.subsync.stremio',
-  version: '1.2.6',
+  version: '1.2.7',
   name: 'Subtitle Sync',
   description:
     'Aggregates subtitles from multiple providers and automatically syncs them to your video using ffsubsync.',
   logo: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317242d'/%3E%3Ccircle cx='32' cy='22' r='9' fill='%234fc3f7'/%3E%3Cpath d='M14 40h36M14 48h24' stroke='%234fc3f7' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E",
   background: '',
   catalogs: [],
-  resources: ['subtitles'],
+  // Do not set a global idPrefixes filter. Nuvio may use TMDB/custom IDs
+  // even when metadata originated from IMDb; filtering here prevents the
+  // subtitle handler from ever being called. The handler logs unsupported IDs.
+  resources: [{ name: 'subtitles', types: ['movie', 'series'] }],
   types: ['movie', 'series'],
-  idPrefixes: ['tt'],
   config: [
     {
       key: 'languages',
