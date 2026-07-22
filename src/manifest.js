@@ -6,7 +6,7 @@
  */
 export const manifest = {
   id: 'com.subsync.stremio',
-  version: '1.2.11',
+  version: '1.2.12',
   name: 'Subtitle Sync',
   description:
     'Aggregates subtitles from multiple providers and automatically syncs them to your video using ffsubsync.',

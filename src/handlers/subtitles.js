@@ -397,24 +397,31 @@ export function createSubtitlesHandler(deps = {}) {
     }
 
     const subtitles = [];
+    const groups = [...groupByLang(candidates).values()];
+    const syncMode = config.syncEnabled && syncAvailable;
 
-    for (const group of groupByLang(candidates).values()) {
-      // Subtitle files are retained only as temporary delivery storage for the
-      // client's follow-up /sub request. Never reuse them between requests:
-      // provider results and synchronization must always be fresh.
-      const uncached = group;
-      if (uncached.length === 0) continue;
-
-      const reference = selectReference(uncached, filename);
-      const syncMode = config.syncEnabled && syncAvailable && reference !== null;
-
-      if (syncMode) {
-        await processSyncGroup({
-          uncached, reference, filename, config, videoKey, cache, registry, subtitles,
-        });
-      } else {
+    // A correctly timed reference is language-independent: ffsubsync aligns
+    // speech/timing patterns rather than matching translated words. When sync
+    // is available, use one reference across every language so English,
+    // Turkish, etc. all land on the same timeline.
+    const reference = syncMode ? selectReference(candidates, filename) : null;
+    if (reference) {
+      await processSyncGroup({
+        uncached: candidates,
+        reference,
+        filename,
+        config,
+        videoKey,
+        cache,
+        registry,
+        subtitles,
+      });
+    } else {
+      // Without a cross-language reference, retain one best result per
+      // language rather than dropping a single available candidate.
+      for (const group of groups) {
         await processBest({
-          uncached, filename, videoKey, cache, registry, subtitles,
+          uncached: group, filename, videoKey, cache, registry, subtitles,
         });
       }
     }

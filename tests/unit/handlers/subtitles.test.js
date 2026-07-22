@@ -1,5 +1,5 @@
 import AdmZip from 'adm-zip';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the sync engine so no ffsubsync/temp-file work happens in unit tests.
 vi.mock('../../../src/sync/engine.js', () => ({
@@ -66,6 +66,10 @@ const MOVIE_ARGS = {
   },
   config: { languages: 'en', syncEnabled: true },
 };
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -226,6 +230,27 @@ describe('createSubtitlesHandler', () => {
     const cachedContent = cache.put.mock.calls[0][2];
     expect(cachedContent.toString()).toContain('Merhaba');
     expect(cachedContent.subarray(0, 2).toString()).not.toBe('PK');
+  });
+
+  it('syncs candidates from different languages against one reference', async () => {
+    const candidates = [
+      sub({ id: 'sub-en', lang: 'en', downloads: 50 }),
+      sub({ id: 'sub-tr', lang: 'tr', downloads: 100 }),
+    ];
+    const registry = makeRegistry(candidates);
+    const cache = makeCache();
+    const handler = buildHandler({ registry, cache });
+
+    const res = await handler({
+      ...MOVIE_ARGS,
+      config: { languages: 'en,tr', syncEnabled: true },
+    });
+
+    expect(syncSubtitles).toHaveBeenCalledTimes(1);
+    expect(syncSubtitles.mock.calls[0][0].map((candidate) => candidate.lang))
+      .toEqual(expect.arrayContaining(['en', 'tr']));
+    expect(res.subtitles).toHaveLength(2);
+    expect(cache.put).toHaveBeenCalledTimes(2);
   });
 
   it('handles a series request, parsing season and episode into the query', async () => {
